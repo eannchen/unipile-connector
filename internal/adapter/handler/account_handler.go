@@ -73,7 +73,7 @@ func (h *AccountHandler) DisconnectLinkedIn(c *gin.Context) {
 
 // ConnectLinkedInRequest represents LinkedIn connection request
 type ConnectLinkedInRequest struct {
-	Type        string `json:"type" binding:"required"` // "credentials" or ""
+	Type        string `json:"type" binding:"required"` // "credentials" or "cookie"
 	Username    string `json:"username,omitempty"`
 	Password    string `json:"password,omitempty"`
 	AccessToken string `json:"access_token,omitempty"`
@@ -116,7 +116,7 @@ func (h *AccountHandler) ConnectLinkedIn(c *gin.Context) {
 		return
 	}
 
-	unipileReq := &account.ConnectLinkedInRequest{
+	connectReq := &account.ConnectLinkedInRequest{
 		Username:    req.Username,
 		Password:    req.Password,
 		AccessToken: req.AccessToken,
@@ -124,7 +124,7 @@ func (h *AccountHandler) ConnectLinkedIn(c *gin.Context) {
 	}
 
 	// Store account in database
-	resp, err := h.accountUsecase.ConnectLinkedInAccount(c.Request.Context(), userID, unipileReq)
+	resp, err := h.accountUsecase.ConnectLinkedInAccount(c.Request.Context(), userID, connectReq)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to store account"})
 		return
