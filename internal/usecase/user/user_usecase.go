@@ -1,0 +1,75 @@
+package user
+
+import (
+	"context"
+	"errors"
+	"unipile-connector/internal/domain/entity"
+	"unipile-connector/internal/domain/repository"
+
+	"golang.org/x/crypto/bcrypt"
+)
+
+// UserUsecase handles user business logic
+type UserUsecase struct {
+	userRepo repository.UserRepository
+}
+
+// NewUserUsecase creates a new user usecase
+func NewUserUsecase(userRepo repository.UserRepository) *UserUsecase {
+	return &UserUsecase{
+		userRepo: userRepo,
+	}
+}
+
+// CreateUser creates a new user
+func (u *UserUsecase) CreateUser(ctx context.Context, username, email, password string) (*entity.User, error) {
+	// Check if user already exists
+	existingUser, _ := u.userRepo.GetByUsername(ctx, username)
+	if existingUser != nil {
+		return nil, errors.New("username already exists")
+	}
+
+	existingEmail, _ := u.userRepo.GetByEmail(ctx, email)
+	if existingEmail != nil {
+		return nil, errors.New("email already exists")
+	}
+
+	// Hash password
+	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
+	if err != nil {
+		return nil, err
+	}
+
+	user := &entity.User{
+		Username: username,
+		Email:    email,
+		Password: string(hashedPassword),
+	}
+
+	if err := u.userRepo.Create(ctx, user); err != nil {
+		return nil, err
+	}
+
+	return user, nil
+}
+
+// AuthenticateUser authenticates a user with username and password
+func (u *UserUsecase) AuthenticateUser(ctx context.Context, username, password string) (*entity.User, error) {
+	user, err := u.userRepo.GetByUsername(ctx, username)
+	if err != nil {
+		return nil, errors.New("invalid credentials")
+	}
+
+	err = bcrypt.CompareHashAndPassword([]byte(user.Password), []byte(password))
+	if err != nil {
+		return nil, errors.New("invalid credentials")
+	}
+
+	return user, nil
+}
+
+// GetUserByID retrieves a user by ID
+func (u *UserUsecase) GetUserByID(ctx context.Context, id uint) (*entity.User, error) {
+	return u.userRepo.GetByID(ctx, id)
+}
+
