@@ -148,7 +148,7 @@ func (h *AccountHandler) ConnectLinkedIn(c *gin.Context) {
 		"message":    "Checkpoint required",
 		"account_id": resp.Account.AccountID,
 		"checkpoint": gin.H{
-			"type": resp.Checkpoint.Type,
+			"type": resp.Checkpoint.Type, // "2FA", "OTP", "IN_APP_VALIDATION", "CAPTCHA", "PHONE_REGISTER"
 		},
 		"expires_at":   resp.ExpiresAt,
 		"row_response": resp.RowResponse,
