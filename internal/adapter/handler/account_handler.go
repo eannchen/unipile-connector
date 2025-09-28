@@ -1,6 +1,7 @@
 package handler
 
 import (
+	"errors"
 	"net/http"
 
 	"github.com/gin-gonic/gin"
@@ -162,63 +163,50 @@ type SolveCheckpointRequest struct {
 
 // SolveCheckpoint handles LinkedIn checkpoint solving
 func (h *AccountHandler) SolveCheckpoint(c *gin.Context) {
-	// userIDStr, exists := c.Get("user_id")
-	// if !exists {
-	// 	c.JSON(http.StatusUnauthorized, gin.H{"error": "User not authenticated"})
-	// 	return
-	// }
+	userIDStr, exists := c.Get("user_id")
+	if !exists {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "User not authenticated"})
+		return
+	}
 
-	// userID, ok := userIDStr.(uint)
-	// if !ok {
-	// 	c.JSON(http.StatusInternalServerError, gin.H{"error": "Invalid user ID"})
-	// 	return
-	// }
+	userID, ok := userIDStr.(uint)
+	if !ok {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Invalid user ID"})
+		return
+	}
 
-	// var req SolveCheckpointRequest
-	// if err := c.ShouldBindJSON(&req); err != nil {
-	// 	c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request data"})
-	// 	return
-	// }
+	var req SolveCheckpointRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request data"})
+		return
+	}
 
-	// // Call Unipile API to solve checkpoint
-	// unipileReq := &client.SolveCheckpointRequest{
-	// 	Provider:  "LINKEDIN",
-	// 	AccountID: req.AccountID,
-	// 	Code:      req.Code,
-	// }
+	solveReq := &account.SolveCheckpointRequest{
+		AccountID: req.AccountID,
+		Code:      req.Code,
+	}
 
-	// unipileResp, err := h.unipileClient.SolveCheckpoint(unipileReq)
-	// if err != nil {
-	// 	c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to solve checkpoint"})
-	// 	return
-	// }
+	entityAccount, err := h.accountUsecase.SolveCheckpoint(c.Request.Context(), userID, solveReq)
+	if err != nil {
+		if errors.Is(err, account.ErrInvalidCodeOrExpiredCheckpoint) {
+			c.JSON(http.StatusUnauthorized, gin.H{
+				"type":   "ErrInvalidCodeOrExpiredCheckpoint",
+				"detail": err.Error(),
+			})
+			return
+		}
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to solve checkpoint"})
+		return
+	}
 
-	// // Check if another checkpoint is required
-	// if unipileResp.Checkpoint != nil {
-	// 	c.JSON(http.StatusAccepted, gin.H{
-	// 		"message":      "Another checkpoint required",
-	// 		"account_id":   unipileResp.AccountID,
-	// 		"checkpoint":   unipileResp.Checkpoint,
-	// 		"requires_2fa": unipileResp.Checkpoint.Type == "2FA" || unipileResp.Checkpoint.Type == "OTP",
-	// 	})
-	// 	return
-	// }
-
-	// Store account in database
-	// account, err := h.accountUsecase.ConnectLinkedInAccount(c.Request.Context(), userID, "")
-	// if err != nil {
-	// 	c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to store account"})
-	// 	return
-	// }
-
-	// c.JSON(http.StatusOK, gin.H{
-	// 	"message":    "LinkedIn account connected successfully",
-	// 	"account_id": account.AccountID,
-	// 	"account": gin.H{
-	// 		"id":         account.ID,
-	// 		"provider":   account.Provider,
-	// 		"account_id": account.AccountID,
-	// 		"created_at": account.CreatedAt,
-	// 	},
-	// })
+	c.JSON(http.StatusOK, gin.H{
+		"message":    "LinkedIn account connected successfully",
+		"account_id": entityAccount.AccountID,
+		"account": gin.H{
+			"id":         entityAccount.ID,
+			"provider":   entityAccount.Provider,
+			"account_id": entityAccount.AccountID,
+			"created_at": entityAccount.CreatedAt,
+		},
+	})
 }

@@ -220,7 +220,15 @@ type SolveCheckpointRequest struct {
 type SolveCheckpointResponse struct {
 	Object    string `json:"object"`
 	AccountID string `json:"account_id"`
+	// error response
+	Status int    `json:"status"`
+	Type   string `json:"type"`
+	Title  string `json:"title"`
+	Detail string `json:"detail"`
 }
+
+// ErrInvalidCodeOrExpiredCheckpoint is returned when the code is invalid or the checkpoint expired
+var ErrInvalidCodeOrExpiredCheckpoint = errors.New("invalid code or expired checkpoint")
 
 // SolveCheckpoint solves a LinkedIn authentication checkpoint
 func (c *UnipileClient) SolveCheckpoint(req *SolveCheckpointRequest) (*SolveCheckpointResponse, error) {
@@ -260,7 +268,12 @@ func (c *UnipileClient) SolveCheckpoint(req *SolveCheckpointRequest) (*SolveChec
 	switch resp.StatusCode {
 	case http.StatusOK, http.StatusCreated:
 		return &response, nil
+	case http.StatusUnauthorized:
+		return nil, ErrInvalidCodeOrExpiredCheckpoint
 	default:
+		if response.Type == "errors/authentication_intent_error" {
+			return nil, ErrInvalidCodeOrExpiredCheckpoint
+		}
 		return nil, fmt.Errorf("unipile API error (status %d): %s", resp.StatusCode, string(body))
 	}
 }
