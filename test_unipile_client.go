@@ -36,7 +36,7 @@ func main() {
 	// TestDeleteAccount(unipileClient)
 	// TestLinkedInConnectionWithCredentials(unipileClient, "your_linkedin_email@example.com", "your_linkedin_password")
 	// TestLinkedInConnectionWithCookie(unipileClient, "your_li_at_cookie_here", "your_user_agent_here")
-	// TestCheckpointSolving(unipileClient, nil)
+	// TestCheckpointSolving(unipileClient, "your_account_id", "your_code")
 	// TestAccountStatusCheck(unipileClient, nil)
 
 	fmt.Println("\n🎉 Unipile client test completed!")
@@ -173,32 +173,23 @@ func TestLinkedInConnectionWithCookie(unipileClient *client.UnipileClient, acces
 }
 
 // TestCheckpointSolving tests the checkpoint solving functionality
-func TestCheckpointSolving(unipileClient *client.UnipileClient, resp *client.ConnectLinkedInResponse) {
+func TestCheckpointSolving(unipileClient *client.UnipileClient, accountID, code string) {
 	fmt.Println("\nTesting checkpoint solving...")
-	if resp != nil && resp.AccountID != "" {
-		fmt.Printf("   Using account ID from previous test: %s\n", resp.AccountID)
 
-		checkpointReq := &client.SolveCheckpointRequest{
-			Provider:  "LINKEDIN",
-			AccountID: resp.AccountID,
-			Code:      "123456", // Example 2FA code
-		}
+	checkpointReq := &client.SolveCheckpointRequest{
+		Provider:  "LINKEDIN",
+		AccountID: accountID,
+		Code:      code, // Example 2FA code
+	}
 
-		checkpointResp, err := unipileClient.SolveCheckpoint(checkpointReq)
-		if err != nil {
-			fmt.Printf("❌ Checkpoint solving failed: %v\n", err)
-			fmt.Println("   This is expected if the code is invalid or the checkpoint expired")
-		} else {
-			fmt.Printf("✅ Checkpoint solving response received!\n")
-			fmt.Printf("   Object: %s\n", checkpointResp.Object)
-			fmt.Printf("   Account ID: %s\n", checkpointResp.AccountID)
-
-			if checkpointResp.Checkpoint != nil {
-				fmt.Printf("   Another checkpoint required: %s\n", checkpointResp.Checkpoint.Type)
-			}
-		}
+	checkpointResp, err := unipileClient.SolveCheckpoint(checkpointReq)
+	if err != nil {
+		fmt.Printf("❌ Checkpoint solving failed: %v\n", err)
+		fmt.Println("   This is expected if the code is invalid or the checkpoint expired")
 	} else {
-		fmt.Println("   Skipping checkpoint test - no account ID available")
+		fmt.Printf("✅ Checkpoint solving response received!\n")
+		fmt.Printf("   Object: %s\n", checkpointResp.Object)
+		fmt.Printf("   Account ID: %s\n", checkpointResp.AccountID)
 	}
 }
 

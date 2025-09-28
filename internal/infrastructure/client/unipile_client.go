@@ -28,13 +28,6 @@ func NewUnipileClient(baseURL, apiKey string) *UnipileClient {
 	}
 }
 
-// SolveCheckpointRequest represents request to solve a checkpoint
-type SolveCheckpointRequest struct {
-	Provider  string `json:"provider"` // "LINKEDIN"
-	AccountID string `json:"account_id"`
-	Code      string `json:"code"`
-}
-
 // AccountStatusResponse represents account status response
 type AccountStatusResponse struct {
 	Object    string `json:"object"`
@@ -216,8 +209,21 @@ func (c *UnipileClient) ConnectLinkedIn(req *ConnectLinkedInRequest) (*ConnectLi
 	}
 }
 
+// SolveCheckpointRequest represents request to solve a checkpoint
+type SolveCheckpointRequest struct {
+	Provider  string `json:"provider"` // "LINKEDIN"
+	AccountID string `json:"account_id"`
+	Code      string `json:"code"`
+}
+
+// SolveCheckpointResponse represents response from checkpoint solving
+type SolveCheckpointResponse struct {
+	Object    string `json:"object"`
+	AccountID string `json:"account_id"`
+}
+
 // SolveCheckpoint solves a LinkedIn authentication checkpoint
-func (c *UnipileClient) SolveCheckpoint(req *SolveCheckpointRequest) (*ConnectLinkedInResponse, error) {
+func (c *UnipileClient) SolveCheckpoint(req *SolveCheckpointRequest) (*SolveCheckpointResponse, error) {
 	url := fmt.Sprintf("%s/api/v1/accounts/checkpoint", c.baseURL)
 
 	jsonData, err := json.Marshal(req)
@@ -245,23 +251,15 @@ func (c *UnipileClient) SolveCheckpoint(req *SolveCheckpointRequest) (*ConnectLi
 		return nil, fmt.Errorf("failed to read response: %w", err)
 	}
 
-	var response ConnectLinkedInResponse
+	var response SolveCheckpointResponse
 	if err := json.Unmarshal(body, &response); err != nil {
 		return nil, fmt.Errorf("failed to unmarshal response: %w", err)
 	}
 
 	// Handle different response status codes
 	switch resp.StatusCode {
-	case http.StatusOK:
-		// Checkpoint solved successfully
+	case http.StatusOK, http.StatusCreated:
 		return &response, nil
-	case http.StatusAccepted:
-		// Another checkpoint required
-		return &response, nil
-	case http.StatusRequestTimeout:
-		return nil, fmt.Errorf("checkpoint timeout: authentication intent expired")
-	case http.StatusBadRequest:
-		return nil, fmt.Errorf("invalid checkpoint: authentication intent expired")
 	default:
 		return nil, fmt.Errorf("unipile API error (status %d): %s", resp.StatusCode, string(body))
 	}
