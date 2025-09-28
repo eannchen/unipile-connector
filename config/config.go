@@ -1,158 +1,217 @@
 package config
 
 import (
+	"bytes"
 	"fmt"
 	"os"
+	"strings"
+	"sync"
 
 	"github.com/spf13/viper"
 )
 
-// Config holds all configuration for the application
+var (
+	// Env environment
+	Env  Environment
+	once sync.Once
+)
+
+// InitEnvironment init env
+func InitEnvironment(confPath string) error {
+	var err error
+	once.Do(func() {
+		Env, err = loadEnvironment(confPath)
+	})
+	return err
+}
+
+// Load loads configuration from .env file and environment variables
+func Load() (*Config, error) {
+	if err := InitEnvironment(""); err != nil {
+		return nil, err
+	}
+
+	// Convert Environment to Config for backward compatibility
+	config := &Config{
+		Server: ServerConfig{
+			Port: Env.Server.Port,
+			Host: Env.Server.Host,
+		},
+		Database: DatabaseConfig{
+			Host:     Env.Database.Host,
+			Port:     Env.Database.Port,
+			User:     Env.Database.User,
+			Password: Env.Database.Password,
+			DBName:   Env.Database.DBName,
+			SSLMode:  Env.Database.SSLMode,
+		},
+		Unipile: UnipileConfig{
+			BaseURL: Env.Unipile.BaseURL,
+			APIKey:  Env.Unipile.APIKey,
+		},
+		Redis: RedisConfig{
+			Host:     Env.Redis.Host,
+			Port:     Env.Redis.Port,
+			Password: Env.Redis.Password,
+			DB:       Env.Redis.DB,
+		},
+	}
+
+	return config, nil
+}
+
+type Environment struct {
+	Server   sectionServer
+	Database sectionDatabase
+	Unipile  sectionUnipile
+	Redis    sectionRedis
+}
+
+type sectionServer struct {
+	Host string
+	Port string
+}
+
+type sectionDatabase struct {
+	Host     string
+	Port     int
+	User     string
+	Password string
+	DBName   string
+	SSLMode  string
+}
+
+type sectionUnipile struct {
+	BaseURL string
+	APIKey  string
+}
+
+type sectionRedis struct {
+	Host     string
+	Port     int
+	Password string
+	DB       int
+}
+
+func loadEnvironment(path string) (Environment, error) {
+	var env Environment
+
+	viper.AutomaticEnv()
+	viper.SetConfigType("env")
+
+	if path != "" {
+		content, err := os.ReadFile(path)
+		if err != nil {
+			return Environment{}, err
+		}
+		if err := viper.ReadConfig(bytes.NewBuffer(content)); err != nil {
+			return Environment{}, err
+		}
+	} else {
+		// look for config in the working directory
+		viper.AddConfigPath(".")
+		viper.SetConfigFile(".env")
+
+		// If a config file is found, read it in.
+		if err := viper.ReadInConfig(); err == nil {
+			fmt.Println("Using config file:", viper.ConfigFileUsed())
+		}
+	}
+
+	viper.SetEnvKeyReplacer(strings.NewReplacer(".", "_"))
+
+	// server
+	env.Server.Host = viper.GetString("server_host")
+	env.Server.Port = viper.GetString("server_port")
+	if len(env.Server.Port) == 0 {
+		env.Server.Port = "8080"
+	}
+	if len(env.Server.Host) == 0 {
+		env.Server.Host = "0.0.0.0"
+	}
+
+	// database
+	env.Database.Host = viper.GetString("db_host")
+	env.Database.Port = viper.GetInt("db_port")
+	env.Database.User = viper.GetString("db_user")
+	env.Database.Password = viper.GetString("db_password")
+	env.Database.DBName = viper.GetString("db_name")
+	env.Database.SSLMode = viper.GetString("db_sslmode")
+	if env.Database.Host == "" {
+		env.Database.Host = "localhost"
+	}
+	if env.Database.Port == 0 {
+		env.Database.Port = 5432
+	}
+	if env.Database.User == "" {
+		env.Database.User = "postgres"
+	}
+	if env.Database.Password == "" {
+		env.Database.Password = "password"
+	}
+	if env.Database.DBName == "" {
+		env.Database.DBName = "unipile_connector"
+	}
+	if env.Database.SSLMode == "" {
+		env.Database.SSLMode = "disable"
+	}
+
+	// unipile
+	env.Unipile.BaseURL = viper.GetString("unipile_base_url")
+	env.Unipile.APIKey = viper.GetString("unipile_api_key")
+	if env.Unipile.BaseURL == "" {
+		env.Unipile.BaseURL = "https://api.unipile.com"
+	}
+
+	// redis
+	env.Redis.Host = viper.GetString("redis_host")
+	env.Redis.Port = viper.GetInt("redis_port")
+	env.Redis.Password = viper.GetString("redis_password")
+	env.Redis.DB = viper.GetInt("redis_db")
+	if env.Redis.Host == "" {
+		env.Redis.Host = "localhost"
+	}
+	if env.Redis.Port == 0 {
+		env.Redis.Port = 6379
+	}
+
+	return env, nil
+}
+
+// Config holds all configuration for the application (for backward compatibility)
 type Config struct {
-	Server   ServerConfig   `mapstructure:"server"`
-	Database DatabaseConfig `mapstructure:"database"`
-	Unipile  UnipileConfig  `mapstructure:"unipile"`
-	Redis    RedisConfig    `mapstructure:"redis"`
+	Server   ServerConfig
+	Database DatabaseConfig
+	Unipile  UnipileConfig
+	Redis    RedisConfig
 }
 
 // ServerConfig holds server configuration
 type ServerConfig struct {
-	Port string `mapstructure:"port"`
-	Host string `mapstructure:"host"`
+	Port string
+	Host string
 }
 
 // DatabaseConfig holds database configuration
 type DatabaseConfig struct {
-	Host     string `mapstructure:"host"`
-	Port     int    `mapstructure:"port"`
-	User     string `mapstructure:"user"`
-	Password string `mapstructure:"password"`
-	DBName   string `mapstructure:"dbname"`
-	SSLMode  string `mapstructure:"sslmode"`
+	Host     string
+	Port     int
+	User     string
+	Password string
+	DBName   string
+	SSLMode  string
 }
 
 // UnipileConfig holds Unipile API configuration
 type UnipileConfig struct {
-	BaseURL string `mapstructure:"base_url"`
-	APIKey  string `mapstructure:"api_key"`
+	BaseURL string
+	APIKey  string
 }
 
 // RedisConfig holds Redis configuration
 type RedisConfig struct {
-	Host     string `mapstructure:"host"`
-	Port     int    `mapstructure:"port"`
-	Password string `mapstructure:"password"`
-	DB       int    `mapstructure:"db"`
+	Host     string
+	Port     int
+	Password string
+	DB       int
 }
-
-// Load loads configuration from file and environment variables
-func Load() (*Config, error) {
-	viper.SetConfigName("config")
-	viper.SetConfigType("yaml")
-	viper.AddConfigPath("./config")
-	viper.AddConfigPath(".")
-
-	// Set default values
-	setDefaults()
-
-	// Read from environment variables
-	viper.AutomaticEnv()
-
-	// Read config file
-	if err := viper.ReadInConfig(); err != nil {
-		if _, ok := err.(viper.ConfigFileNotFoundError); !ok {
-			return nil, fmt.Errorf("error reading config file: %w", err)
-		}
-	}
-
-	var config Config
-	if err := viper.Unmarshal(&config); err != nil {
-		return nil, fmt.Errorf("error unmarshaling config: %w", err)
-	}
-
-	// Override with environment variables if they exist
-	overrideWithEnv(&config)
-
-	return &config, nil
-}
-
-// setDefaults sets default configuration values
-func setDefaults() {
-	viper.SetDefault("server.port", "8080")
-	viper.SetDefault("server.host", "0.0.0.0")
-
-	viper.SetDefault("database.host", "localhost")
-	viper.SetDefault("database.port", 5432)
-	viper.SetDefault("database.user", "postgres")
-	viper.SetDefault("database.password", "password")
-	viper.SetDefault("database.dbname", "unipile_connector")
-	viper.SetDefault("database.sslmode", "disable")
-
-	viper.SetDefault("unipile.base_url", "https://api.unipile.com")
-	viper.SetDefault("unipile.api_key", "")
-
-	viper.SetDefault("redis.host", "localhost")
-	viper.SetDefault("redis.port", 6379)
-	viper.SetDefault("redis.password", "")
-	viper.SetDefault("redis.db", 0)
-}
-
-// overrideWithEnv overrides config with environment variables
-func overrideWithEnv(config *Config) {
-	if port := os.Getenv("SERVER_PORT"); port != "" {
-		config.Server.Port = port
-	}
-	if host := os.Getenv("SERVER_HOST"); host != "" {
-		config.Server.Host = host
-	}
-
-	if host := os.Getenv("DB_HOST"); host != "" {
-		config.Database.Host = host
-	}
-	if port := os.Getenv("DB_PORT"); port != "" {
-		config.Database.Port = parseInt(port)
-	}
-	if user := os.Getenv("DB_USER"); user != "" {
-		config.Database.User = user
-	}
-	if password := os.Getenv("DB_PASSWORD"); password != "" {
-		config.Database.Password = password
-	}
-	if dbname := os.Getenv("DB_NAME"); dbname != "" {
-		config.Database.DBName = dbname
-	}
-	if sslmode := os.Getenv("DB_SSLMODE"); sslmode != "" {
-		config.Database.SSLMode = sslmode
-	}
-
-	if baseURL := os.Getenv("UNIPILE_BASE_URL"); baseURL != "" {
-		config.Unipile.BaseURL = baseURL
-	}
-	if apiKey := os.Getenv("UNIPILE_API_KEY"); apiKey != "" {
-		config.Unipile.APIKey = apiKey
-	}
-
-	if host := os.Getenv("REDIS_HOST"); host != "" {
-		config.Redis.Host = host
-	}
-	if port := os.Getenv("REDIS_PORT"); port != "" {
-		config.Redis.Port = parseInt(port)
-	}
-	if password := os.Getenv("REDIS_PASSWORD"); password != "" {
-		config.Redis.Password = password
-	}
-	if db := os.Getenv("REDIS_DB"); db != "" {
-		config.Redis.DB = parseInt(db)
-	}
-}
-
-// parseInt safely parses string to int
-func parseInt(s string) int {
-	if s == "" {
-		return 0
-	}
-	var result int
-	fmt.Sscanf(s, "%d", &result)
-	return result
-}
-
