@@ -40,7 +40,7 @@ func NewServer(
 ) *Server {
 	// Initialize use cases
 	userUsecase := user.NewUserUsecase(userRepo)
-	accountUsecase := account.NewAccountUsecase(accountRepo)
+	accountUsecase := account.NewAccountUsecase(accountRepo, unipileClient, logger)
 
 	// Initialize JWT service
 	jwtService := jwt.NewJWTService(jwtSecretKey, jwtIssuer)
@@ -48,7 +48,7 @@ func NewServer(
 
 	// Initialize handlers
 	authHandler := handler.NewAuthHandler(userUsecase, jwtService, logger)
-	accountHandler := handler.NewAccountHandler(accountUsecase, unipileClient, logger)
+	accountHandler := handler.NewAccountHandler(accountUsecase)
 	authMiddleware := middleware.NewAuthMiddleware(userUsecase, logger)
 
 	// Setup router

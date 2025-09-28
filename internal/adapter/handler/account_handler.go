@@ -4,7 +4,6 @@ import (
 	"net/http"
 
 	"github.com/gin-gonic/gin"
-	"github.com/sirupsen/logrus"
 
 	"unipile-connector/internal/infrastructure/client"
 	"unipile-connector/internal/usecase/account"
@@ -13,16 +12,12 @@ import (
 // AccountHandler handles account-related requests
 type AccountHandler struct {
 	accountUsecase *account.AccountUsecase
-	unipileClient  *client.UnipileClient
-	logger         *logrus.Logger
 }
 
 // NewAccountHandler creates a new account handler
-func NewAccountHandler(accountUsecase *account.AccountUsecase, unipileClient *client.UnipileClient, logger *logrus.Logger) *AccountHandler {
+func NewAccountHandler(accountUsecase *account.AccountUsecase) *AccountHandler {
 	return &AccountHandler{
 		accountUsecase: accountUsecase,
-		unipileClient:  unipileClient,
-		logger:         logger,
 	}
 }
 
@@ -51,7 +46,6 @@ func (h *AccountHandler) ListUserAccounts(c *gin.Context) {
 
 	accounts, err := h.accountUsecase.ListUserAccounts(c.Request.Context(), userID)
 	if err != nil {
-		h.logger.WithError(err).Error("Failed to get user accounts")
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to retrieve accounts"})
 		return
 	}
@@ -77,7 +71,6 @@ func (h *AccountHandler) ConnectLinkedIn(c *gin.Context) {
 
 	var req ConnectLinkedInRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		h.logger.WithError(err).Error("Invalid LinkedIn connection request")
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request data"})
 		return
 	}
@@ -111,28 +104,27 @@ func (h *AccountHandler) ConnectLinkedIn(c *gin.Context) {
 		unipileReq.UserAgent = req.UserAgent
 	}
 
-	unipileResp, err := h.unipileClient.ConnectLinkedIn(unipileReq)
-	if err != nil {
-		h.logger.WithError(err).Error("Failed to connect LinkedIn via Unipile")
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to connect LinkedIn account"})
-		return
-	}
+	// unipileResp, err := h.unipileClient.ConnectLinkedIn(unipileReq)
+	// if err != nil {
+	// 	h.logger.WithError(err).Error("Failed to connect LinkedIn via Unipile")
+	// 	c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to connect LinkedIn account"})
+	// 	return
+	// }
 
-	// Check if checkpoint is required
-	if unipileResp.Checkpoint != nil {
-		c.JSON(http.StatusAccepted, gin.H{
-			"message":      "Checkpoint required",
-			"account_id":   unipileResp.AccountID,
-			"checkpoint":   unipileResp.Checkpoint,
-			"requires_2fa": unipileResp.Checkpoint.Type == "2FA" || unipileResp.Checkpoint.Type == "OTP",
-		})
-		return
-	}
+	// // Check if checkpoint is required
+	// if unipileResp.Checkpoint != nil {
+	// 	c.JSON(http.StatusAccepted, gin.H{
+	// 		"message":      "Checkpoint required",
+	// 		"account_id":   unipileResp.AccountID,
+	// 		"checkpoint":   unipileResp.Checkpoint,
+	// 		"requires_2fa": unipileResp.Checkpoint.Type == "2FA" || unipileResp.Checkpoint.Type == "OTP",
+	// 	})
+	// 	return
+	// }
 
 	// Store account in database
-	account, err := h.accountUsecase.ConnectLinkedInAccount(c.Request.Context(), userID, unipileResp.AccountID)
+	account, err := h.accountUsecase.ConnectLinkedInAccount(c.Request.Context(), userID, "")
 	if err != nil {
-		h.logger.WithError(err).Error("Failed to store LinkedIn account")
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to store account"})
 		return
 	}
@@ -171,40 +163,37 @@ func (h *AccountHandler) SolveCheckpoint(c *gin.Context) {
 
 	var req SolveCheckpointRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		h.logger.WithError(err).Error("Invalid checkpoint solving request")
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request data"})
 		return
 	}
 
-	// Call Unipile API to solve checkpoint
-	unipileReq := &client.SolveCheckpointRequest{
-		Provider:  "LINKEDIN",
-		AccountID: req.AccountID,
-		Code:      req.Code,
-	}
+	// // Call Unipile API to solve checkpoint
+	// unipileReq := &client.SolveCheckpointRequest{
+	// 	Provider:  "LINKEDIN",
+	// 	AccountID: req.AccountID,
+	// 	Code:      req.Code,
+	// }
 
-	unipileResp, err := h.unipileClient.SolveCheckpoint(unipileReq)
-	if err != nil {
-		h.logger.WithError(err).Error("Failed to solve checkpoint via Unipile")
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to solve checkpoint"})
-		return
-	}
+	// unipileResp, err := h.unipileClient.SolveCheckpoint(unipileReq)
+	// if err != nil {
+	// 	c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to solve checkpoint"})
+	// 	return
+	// }
 
-	// Check if another checkpoint is required
-	if unipileResp.Checkpoint != nil {
-		c.JSON(http.StatusAccepted, gin.H{
-			"message":      "Another checkpoint required",
-			"account_id":   unipileResp.AccountID,
-			"checkpoint":   unipileResp.Checkpoint,
-			"requires_2fa": unipileResp.Checkpoint.Type == "2FA" || unipileResp.Checkpoint.Type == "OTP",
-		})
-		return
-	}
+	// // Check if another checkpoint is required
+	// if unipileResp.Checkpoint != nil {
+	// 	c.JSON(http.StatusAccepted, gin.H{
+	// 		"message":      "Another checkpoint required",
+	// 		"account_id":   unipileResp.AccountID,
+	// 		"checkpoint":   unipileResp.Checkpoint,
+	// 		"requires_2fa": unipileResp.Checkpoint.Type == "2FA" || unipileResp.Checkpoint.Type == "OTP",
+	// 	})
+	// 	return
+	// }
 
 	// Store account in database
-	account, err := h.accountUsecase.ConnectLinkedInAccount(c.Request.Context(), userID, unipileResp.AccountID)
+	account, err := h.accountUsecase.ConnectLinkedInAccount(c.Request.Context(), userID, "")
 	if err != nil {
-		h.logger.WithError(err).Error("Failed to store LinkedIn account")
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to store account"})
 		return
 	}
@@ -235,9 +224,8 @@ func (h *AccountHandler) DisconnectLinkedIn(c *gin.Context) {
 		return
 	}
 
-	err := h.accountUsecase.DisconnectLinkedInAccount(c.Request.Context(), userID)
+	err := h.accountUsecase.DisconnectLinkedIn(c.Request.Context(), userID)
 	if err != nil {
-		h.logger.WithError(err).Error("Failed to disconnect LinkedIn account")
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to disconnect account"})
 		return
 	}

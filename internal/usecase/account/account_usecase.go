@@ -3,19 +3,26 @@ package account
 import (
 	"context"
 
+	"github.com/sirupsen/logrus"
+
 	"unipile-connector/internal/domain/entity"
 	"unipile-connector/internal/domain/repository"
+	"unipile-connector/internal/infrastructure/client"
 )
 
 // AccountUsecase handles account business logic
 type AccountUsecase struct {
-	accountRepo repository.AccountRepository
+	accountRepo   repository.AccountRepository
+	unipileClient *client.UnipileClient
+	logger        *logrus.Logger
 }
 
 // NewAccountUsecase creates a new account usecase
-func NewAccountUsecase(accountRepo repository.AccountRepository) *AccountUsecase {
+func NewAccountUsecase(accountRepo repository.AccountRepository, unipileClient *client.UnipileClient, logger *logrus.Logger) *AccountUsecase {
 	return &AccountUsecase{
-		accountRepo: accountRepo,
+		accountRepo:   accountRepo,
+		unipileClient: unipileClient,
+		logger:        logger,
 	}
 }
 
@@ -51,7 +58,7 @@ func (a *AccountUsecase) ListUserAccounts(ctx context.Context, userID uint) ([]*
 	return a.accountRepo.GetByUserID(ctx, userID)
 }
 
-// DisconnectLinkedInAccount disconnects LinkedIn account for a user
-func (a *AccountUsecase) DisconnectLinkedInAccount(ctx context.Context, userID uint) error {
+// DisconnectLinkedIn disconnects LinkedIn account for a user
+func (a *AccountUsecase) DisconnectLinkedIn(ctx context.Context, userID uint) error {
 	return a.accountRepo.DeleteByUserIDAndProvider(ctx, userID, "LINKEDIN")
 }
