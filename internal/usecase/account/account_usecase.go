@@ -102,6 +102,7 @@ func (a *AccountUsecase) ConnectLinkedInAccount(ctx context.Context, userID uint
 
 		if resp.Checkpoint == nil {
 			if err := a.accountRepo.Create(ctx, account); err != nil {
+				a.logger.Errorf("Failed to create account: %v with accountID created on Unipile: %s", err, account.AccountID)
 				return err
 			}
 			connResp = &ConnectLinkedInResponse{
