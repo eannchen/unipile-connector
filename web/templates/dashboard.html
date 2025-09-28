@@ -59,15 +59,46 @@
 
                         <div id="cookieForm" style="display: none;">
                             <div class="mb-3">
-                                <label for="linkedinCookie" class="form-label">LinkedIn Cookie</label>
-                                <textarea class="form-control" id="linkedinCookie" rows="3"
-                                    placeholder="Paste your LinkedIn cookie here..."></textarea>
+                                <label for="linkedinAccessToken" class="form-label">LinkedIn Access Token (li_at
+                                    cookie)</label>
+                                <textarea class="form-control" id="linkedinAccessToken" rows="3"
+                                    placeholder="Paste your LinkedIn li_at cookie here..."></textarea>
+                            </div>
+                            <div class="mb-3">
+                                <label for="userAgent" class="form-label">User Agent (optional)</label>
+                                <input type="text" class="form-control" id="userAgent"
+                                    placeholder="Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7)...">
                             </div>
                         </div>
 
                         <div class="d-grid">
                             <button type="button" class="btn btn-primary" onclick="connectLinkedIn()">Connect LinkedIn
                                 Account</button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Checkpoint Solving Section -->
+                <div class="card mt-4" id="checkpointSection" style="display: none;">
+                    <div class="card-header">
+                        <h4>Complete Authentication</h4>
+                    </div>
+                    <div class="card-body">
+                        <div class="alert alert-info" id="checkpointAlert">
+                            <strong>Checkpoint Required:</strong> <span id="checkpointType"></span>
+                        </div>
+                        <div class="mb-3">
+                            <label for="checkpointCode" class="form-label">Verification Code</label>
+                            <input type="text" class="form-control" id="checkpointCode"
+                                placeholder="Enter verification code">
+                        </div>
+                        <div class="d-grid">
+                            <button type="button" class="btn btn-success" onclick="solveCheckpoint()">Submit
+                                Code</button>
+                        </div>
+                        <div class="mt-3">
+                            <button type="button" class="btn btn-outline-secondary"
+                                onclick="cancelCheckpoint()">Cancel</button>
                         </div>
                     </div>
                 </div>

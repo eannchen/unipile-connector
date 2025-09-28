@@ -88,6 +88,7 @@ func (s *Server) setupRoutes() {
 		{
 			protected.GET("/auth/me", s.authHandler.GetCurrentUser)
 			protected.POST("/accounts/linkedin/connect", s.accountHandler.ConnectLinkedIn)
+			protected.POST("/accounts/linkedin/checkpoint", s.accountHandler.SolveCheckpoint)
 			protected.GET("/accounts", s.accountHandler.GetUserAccounts)
 			protected.GET("/accounts/linkedin", s.accountHandler.GetLinkedInAccount)
 			protected.DELETE("/accounts/linkedin", s.accountHandler.DisconnectLinkedIn)

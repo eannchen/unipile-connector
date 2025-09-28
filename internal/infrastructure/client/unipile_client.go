@@ -29,22 +29,43 @@ func NewUnipileClient(baseURL, apiKey string) *UnipileClient {
 
 // ConnectLinkedInRequest represents the request to connect LinkedIn account
 type ConnectLinkedInRequest struct {
-	Type     string `json:"type"` // "credentials" or "cookie"
-	Username string `json:"username,omitempty"`
-	Password string `json:"password,omitempty"`
-	Cookie   string `json:"cookie,omitempty"`
+	Provider    string `json:"provider"` // "LINKEDIN"
+	Username    string `json:"username,omitempty"`
+	Password    string `json:"password,omitempty"`
+	AccessToken string `json:"access_token,omitempty"`
+	UserAgent   string `json:"user_agent,omitempty"`
 }
 
 // ConnectLinkedInResponse represents the response from LinkedIn connection
 type ConnectLinkedInResponse struct {
+	Object     string      `json:"object"`
+	AccountID  string      `json:"account_id"`
+	Checkpoint *Checkpoint `json:"checkpoint,omitempty"`
+	Status     string      `json:"status,omitempty"`
+}
+
+// Checkpoint represents a LinkedIn authentication checkpoint
+type Checkpoint struct {
+	Type string `json:"type"` // "2FA", "OTP", "IN_APP_VALIDATION", "CAPTCHA", "PHONE_REGISTER"
+}
+
+// SolveCheckpointRequest represents request to solve a checkpoint
+type SolveCheckpointRequest struct {
+	Provider  string `json:"provider"` // "LINKEDIN"
 	AccountID string `json:"account_id"`
-	Success   bool   `json:"success"`
-	Message   string `json:"message,omitempty"`
+	Code      string `json:"code"`
+}
+
+// AccountStatusResponse represents account status response
+type AccountStatusResponse struct {
+	Object    string `json:"object"`
+	AccountID string `json:"account_id"`
+	Status    string `json:"status"` // "OK", "CHECKPOINT", "ERROR"
 }
 
 // ConnectLinkedIn connects a LinkedIn account using Unipile
 func (c *UnipileClient) ConnectLinkedIn(req *ConnectLinkedInRequest) (*ConnectLinkedInResponse, error) {
-	url := fmt.Sprintf("%s/api/v1/linkedin/connect", c.baseURL)
+	url := fmt.Sprintf("%s/api/v1/accounts", c.baseURL)
 
 	jsonData, err := json.Marshal(req)
 	if err != nil {
@@ -57,7 +78,100 @@ func (c *UnipileClient) ConnectLinkedIn(req *ConnectLinkedInRequest) (*ConnectLi
 	}
 
 	httpReq.Header.Set("Content-Type", "application/json")
-	httpReq.Header.Set("Authorization", "Bearer "+c.apiKey)
+	httpReq.Header.Set("X-API-KEY", c.apiKey)
+	httpReq.Header.Set("accept", "application/json")
+
+	resp, err := c.httpClient.Do(httpReq)
+	if err != nil {
+		return nil, fmt.Errorf("failed to make request: %w", err)
+	}
+	defer resp.Body.Close()
+
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read response: %w", err)
+	}
+
+	var response ConnectLinkedInResponse
+	if err := json.Unmarshal(body, &response); err != nil {
+		return nil, fmt.Errorf("failed to unmarshal response: %w", err)
+	}
+
+	// Handle different response status codes
+	switch resp.StatusCode {
+	case http.StatusOK:
+		// Account connected successfully
+		return &response, nil
+	case http.StatusAccepted:
+		// Checkpoint required
+		return &response, nil
+	default:
+		return nil, fmt.Errorf("unipile API error (status %d): %s", resp.StatusCode, string(body))
+	}
+}
+
+// SolveCheckpoint solves a LinkedIn authentication checkpoint
+func (c *UnipileClient) SolveCheckpoint(req *SolveCheckpointRequest) (*ConnectLinkedInResponse, error) {
+	url := fmt.Sprintf("%s/api/v1/accounts/checkpoint", c.baseURL)
+
+	jsonData, err := json.Marshal(req)
+	if err != nil {
+		return nil, fmt.Errorf("failed to marshal request: %w", err)
+	}
+
+	httpReq, err := http.NewRequest("POST", url, bytes.NewBuffer(jsonData))
+	if err != nil {
+		return nil, fmt.Errorf("failed to create request: %w", err)
+	}
+
+	httpReq.Header.Set("Content-Type", "application/json")
+	httpReq.Header.Set("X-API-KEY", c.apiKey)
+	httpReq.Header.Set("accept", "application/json")
+
+	resp, err := c.httpClient.Do(httpReq)
+	if err != nil {
+		return nil, fmt.Errorf("failed to make request: %w", err)
+	}
+	defer resp.Body.Close()
+
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read response: %w", err)
+	}
+
+	var response ConnectLinkedInResponse
+	if err := json.Unmarshal(body, &response); err != nil {
+		return nil, fmt.Errorf("failed to unmarshal response: %w", err)
+	}
+
+	// Handle different response status codes
+	switch resp.StatusCode {
+	case http.StatusOK:
+		// Checkpoint solved successfully
+		return &response, nil
+	case http.StatusAccepted:
+		// Another checkpoint required
+		return &response, nil
+	case http.StatusRequestTimeout:
+		return nil, fmt.Errorf("checkpoint timeout: authentication intent expired")
+	case http.StatusBadRequest:
+		return nil, fmt.Errorf("invalid checkpoint: authentication intent expired")
+	default:
+		return nil, fmt.Errorf("unipile API error (status %d): %s", resp.StatusCode, string(body))
+	}
+}
+
+// GetAccountStatus gets the status of a LinkedIn account
+func (c *UnipileClient) GetAccountStatus(accountID string) (*AccountStatusResponse, error) {
+	url := fmt.Sprintf("%s/api/v1/accounts/%s", c.baseURL, accountID)
+
+	httpReq, err := http.NewRequest("GET", url, nil)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create request: %w", err)
+	}
+
+	httpReq.Header.Set("X-API-KEY", c.apiKey)
+	httpReq.Header.Set("accept", "application/json")
 
 	resp, err := c.httpClient.Do(httpReq)
 	if err != nil {
@@ -71,10 +185,10 @@ func (c *UnipileClient) ConnectLinkedIn(req *ConnectLinkedInRequest) (*ConnectLi
 	}
 
 	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("unipile API error: %s", string(body))
+		return nil, fmt.Errorf("unipile API error (status %d): %s", resp.StatusCode, string(body))
 	}
 
-	var response ConnectLinkedInResponse
+	var response AccountStatusResponse
 	if err := json.Unmarshal(body, &response); err != nil {
 		return nil, fmt.Errorf("failed to unmarshal response: %w", err)
 	}
@@ -84,14 +198,16 @@ func (c *UnipileClient) ConnectLinkedIn(req *ConnectLinkedInRequest) (*ConnectLi
 
 // TestConnection tests the connection to Unipile API
 func (c *UnipileClient) TestConnection() error {
-	url := fmt.Sprintf("%s/api/v1/health", c.baseURL)
+	// Simple health check - try to get accounts list
+	url := fmt.Sprintf("%s/api/v1/accounts", c.baseURL)
 
 	httpReq, err := http.NewRequest("GET", url, nil)
 	if err != nil {
 		return fmt.Errorf("failed to create request: %w", err)
 	}
 
-	httpReq.Header.Set("Authorization", "Bearer "+c.apiKey)
+	httpReq.Header.Set("X-API-KEY", c.apiKey)
+	httpReq.Header.Set("accept", "application/json")
 
 	resp, err := c.httpClient.Do(httpReq)
 	if err != nil {
@@ -105,4 +221,3 @@ func (c *UnipileClient) TestConnection() error {
 
 	return nil
 }
-

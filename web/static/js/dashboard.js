@@ -1,5 +1,6 @@
 // Dashboard JavaScript
 let currentUser = null;
+let currentAccountID = null;
 
 // Check authentication and load dashboard
 document.addEventListener('DOMContentLoaded', function () {
@@ -110,14 +111,18 @@ async function connectLinkedIn() {
         requestData.username = username;
         requestData.password = password;
     } else if (connectionType === 'cookie') {
-        const cookie = document.getElementById('linkedinCookie').value;
+        const accessToken = document.getElementById('linkedinAccessToken').value;
+        const userAgent = document.getElementById('userAgent').value;
 
-        if (!cookie) {
-            showAlert('Please enter LinkedIn cookie', 'danger');
+        if (!accessToken) {
+            showAlert('Please enter LinkedIn access token', 'danger');
             return;
         }
 
-        requestData.cookie = cookie;
+        requestData.access_token = accessToken;
+        if (userAgent) {
+            requestData.user_agent = userAgent;
+        }
     }
 
     try {
@@ -132,12 +137,18 @@ async function connectLinkedIn() {
 
         const data = await response.json();
 
-        if (response.ok) {
+        if (response.status === 202) {
+            // Checkpoint required
+            currentAccountID = data.account_id;
+            showCheckpointSection(data.checkpoint);
+            showAlert('Checkpoint required: ' + data.checkpoint.type, 'info');
+        } else if (response.ok) {
             showAlert('LinkedIn account connected successfully!', 'success');
             // Clear form
             document.getElementById('linkedinUsername').value = '';
             document.getElementById('linkedinPassword').value = '';
-            document.getElementById('linkedinCookie').value = '';
+            document.getElementById('linkedinAccessToken').value = '';
+            document.getElementById('userAgent').value = '';
             // Reload accounts
             loadUserAccounts();
         } else {
@@ -146,6 +157,71 @@ async function connectLinkedIn() {
     } catch (error) {
         showAlert('Network error. Please try again.', 'danger');
     }
+}
+
+// Show checkpoint section
+function showCheckpointSection(checkpoint) {
+    const checkpointSection = document.getElementById('checkpointSection');
+    const checkpointType = document.getElementById('checkpointType');
+
+    checkpointType.textContent = checkpoint.type;
+    checkpointSection.style.display = 'block';
+
+    // Scroll to checkpoint section
+    checkpointSection.scrollIntoView({ behavior: 'smooth' });
+}
+
+// Solve checkpoint
+async function solveCheckpoint() {
+    const code = document.getElementById('checkpointCode').value;
+
+    if (!code) {
+        showAlert('Please enter verification code', 'danger');
+        return;
+    }
+
+    try {
+        const response = await fetch('/api/v1/accounts/linkedin/checkpoint', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-User-ID': currentUser.id
+            },
+            body: JSON.stringify({
+                account_id: currentAccountID,
+                code: code
+            })
+        });
+
+        const data = await response.json();
+
+        if (response.status === 202) {
+            // Another checkpoint required
+            showAlert('Another checkpoint required: ' + data.checkpoint.type, 'info');
+            document.getElementById('checkpointCode').value = '';
+        } else if (response.ok) {
+            showAlert('LinkedIn account connected successfully!', 'success');
+            hideCheckpointSection();
+            loadUserAccounts();
+        } else {
+            showAlert(data.error || 'Failed to solve checkpoint', 'danger');
+        }
+    } catch (error) {
+        showAlert('Network error. Please try again.', 'danger');
+    }
+}
+
+// Cancel checkpoint
+function cancelCheckpoint() {
+    hideCheckpointSection();
+    currentAccountID = null;
+}
+
+// Hide checkpoint section
+function hideCheckpointSection() {
+    const checkpointSection = document.getElementById('checkpointSection');
+    checkpointSection.style.display = 'none';
+    document.getElementById('checkpointCode').value = '';
 }
 
 // Disconnect LinkedIn account
@@ -192,4 +268,3 @@ function showAlert(message, type = 'info') {
         alertDiv.remove();
     }, 5000);
 }
-

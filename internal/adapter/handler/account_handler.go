@@ -27,10 +27,11 @@ func NewAccountHandler(accountUsecase *account.AccountUsecase, unipileClient *cl
 
 // ConnectLinkedInRequest represents LinkedIn connection request
 type ConnectLinkedInRequest struct {
-	Type     string `json:"type" binding:"required"` // "credentials" or "cookie"
-	Username string `json:"username,omitempty"`
-	Password string `json:"password,omitempty"`
-	Cookie   string `json:"cookie,omitempty"`
+	Type        string `json:"type" binding:"required"` // "credentials" or "cookie"
+	Username    string `json:"username,omitempty"`
+	Password    string `json:"password,omitempty"`
+	AccessToken string `json:"access_token,omitempty"`
+	UserAgent   string `json:"user_agent,omitempty"`
 }
 
 // ConnectLinkedIn handles LinkedIn account connection
@@ -61,8 +62,8 @@ func (h *AccountHandler) ConnectLinkedIn(c *gin.Context) {
 			return
 		}
 	} else if req.Type == "cookie" {
-		if req.Cookie == "" {
-			c.JSON(http.StatusBadRequest, gin.H{"error": "Cookie required for cookie type"})
+		if req.AccessToken == "" {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Access token required for cookie type"})
 			return
 		}
 	} else {
@@ -72,10 +73,15 @@ func (h *AccountHandler) ConnectLinkedIn(c *gin.Context) {
 
 	// Call Unipile API
 	unipileReq := &client.ConnectLinkedInRequest{
-		Type:     req.Type,
-		Username: req.Username,
-		Password: req.Password,
-		Cookie:   req.Cookie,
+		Provider: "LINKEDIN",
+	}
+
+	if req.Type == "credentials" {
+		unipileReq.Username = req.Username
+		unipileReq.Password = req.Password
+	} else if req.Type == "cookie" {
+		unipileReq.AccessToken = req.AccessToken
+		unipileReq.UserAgent = req.UserAgent
 	}
 
 	unipileResp, err := h.unipileClient.ConnectLinkedIn(unipileReq)
@@ -85,8 +91,86 @@ func (h *AccountHandler) ConnectLinkedIn(c *gin.Context) {
 		return
 	}
 
-	if !unipileResp.Success {
-		c.JSON(http.StatusBadRequest, gin.H{"error": unipileResp.Message})
+	// Check if checkpoint is required
+	if unipileResp.Checkpoint != nil {
+		c.JSON(http.StatusAccepted, gin.H{
+			"message":      "Checkpoint required",
+			"account_id":   unipileResp.AccountID,
+			"checkpoint":   unipileResp.Checkpoint,
+			"requires_2fa": unipileResp.Checkpoint.Type == "2FA" || unipileResp.Checkpoint.Type == "OTP",
+		})
+		return
+	}
+
+	// Store account in database
+	account, err := h.accountUsecase.ConnectLinkedInAccount(c.Request.Context(), userID, unipileResp.AccountID)
+	if err != nil {
+		h.logger.WithError(err).Error("Failed to store LinkedIn account")
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to store account"})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"message":    "LinkedIn account connected successfully",
+		"account_id": account.AccountID,
+		"account": gin.H{
+			"id":         account.ID,
+			"provider":   account.Provider,
+			"account_id": account.AccountID,
+			"created_at": account.CreatedAt,
+		},
+	})
+}
+
+// SolveCheckpointRequest represents request to solve a checkpoint
+type SolveCheckpointRequest struct {
+	AccountID string `json:"account_id" binding:"required"`
+	Code      string `json:"code" binding:"required"`
+}
+
+// SolveCheckpoint handles LinkedIn checkpoint solving
+func (h *AccountHandler) SolveCheckpoint(c *gin.Context) {
+	userIDStr, exists := c.Get("user_id")
+	if !exists {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "User not authenticated"})
+		return
+	}
+
+	userID, ok := userIDStr.(uint)
+	if !ok {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Invalid user ID"})
+		return
+	}
+
+	var req SolveCheckpointRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		h.logger.WithError(err).Error("Invalid checkpoint solving request")
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request data"})
+		return
+	}
+
+	// Call Unipile API to solve checkpoint
+	unipileReq := &client.SolveCheckpointRequest{
+		Provider:  "LINKEDIN",
+		AccountID: req.AccountID,
+		Code:      req.Code,
+	}
+
+	unipileResp, err := h.unipileClient.SolveCheckpoint(unipileReq)
+	if err != nil {
+		h.logger.WithError(err).Error("Failed to solve checkpoint via Unipile")
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to solve checkpoint"})
+		return
+	}
+
+	// Check if another checkpoint is required
+	if unipileResp.Checkpoint != nil {
+		c.JSON(http.StatusAccepted, gin.H{
+			"message":      "Another checkpoint required",
+			"account_id":   unipileResp.AccountID,
+			"checkpoint":   unipileResp.Checkpoint,
+			"requires_2fa": unipileResp.Checkpoint.Type == "2FA" || unipileResp.Checkpoint.Type == "OTP",
+		})
 		return
 	}
 
