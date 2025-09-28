@@ -145,6 +145,10 @@ function displayAccounts(accounts) {
                         <small>${new Date(account.created_at).toLocaleDateString()}</small>
                     </div>
                     <p class="mb-1">Account ID: ${account.account_id}</p>
+                    <button type="button" class="btn btn-outline-danger btn-sm" onclick="disconnectLinkedIn()"
+                         id="disconnectBtn">
+                        Disconnect LinkedIn
+                    </button>
                 </div>
             `;
         });

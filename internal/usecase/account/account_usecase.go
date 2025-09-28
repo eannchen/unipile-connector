@@ -2,6 +2,7 @@ package account
 
 import (
 	"context"
+
 	"unipile-connector/internal/domain/entity"
 	"unipile-connector/internal/domain/repository"
 )
@@ -45,17 +46,12 @@ func (a *AccountUsecase) ConnectLinkedInAccount(ctx context.Context, userID uint
 	return account, nil
 }
 
-// GetUserAccounts retrieves all accounts for a user
-func (a *AccountUsecase) GetUserAccounts(ctx context.Context, userID uint) ([]*entity.Account, error) {
+// ListUserAccounts retrieves all accounts for a user
+func (a *AccountUsecase) ListUserAccounts(ctx context.Context, userID uint) ([]*entity.Account, error) {
 	return a.accountRepo.GetByUserID(ctx, userID)
-}
-
-// GetLinkedInAccount retrieves LinkedIn account for a user
-func (a *AccountUsecase) GetLinkedInAccount(ctx context.Context, userID uint) (*entity.Account, error) {
-	return a.accountRepo.GetByUserIDAndProvider(ctx, userID, "linkedin")
 }
 
 // DisconnectLinkedInAccount disconnects LinkedIn account for a user
 func (a *AccountUsecase) DisconnectLinkedInAccount(ctx context.Context, userID uint) error {
-	return a.accountRepo.DeleteByUserIDAndProvider(ctx, userID, "linkedin")
+	return a.accountRepo.DeleteByUserIDAndProvider(ctx, userID, "LINKEDIN")
 }
