@@ -26,6 +26,13 @@ document.addEventListener('DOMContentLoaded', function () {
 
     // Setup connection type toggle
     setupConnectionTypeToggle();
+
+    // Debug: Check if checkpoint section exists
+    const checkpointSection = document.getElementById('checkpointSection');
+    console.log('Checkpoint section exists:', !!checkpointSection);
+    if (checkpointSection) {
+        console.log('Checkpoint section display:', checkpointSection.style.display);
+    }
 });
 
 // Handle navbar brand click - stay on dashboard when logged in
@@ -135,6 +142,11 @@ function displayAccounts(accounts) {
     const accountsList = document.getElementById('accountsList');
     const disconnectBtn = document.getElementById('disconnectBtn');
 
+    if (!accountsList) {
+        console.error('accountsList element not found');
+        return;
+    }
+
     if (accounts && accounts.length > 0) {
         let html = '<div class="list-group">';
         accounts.forEach(account => {
@@ -157,12 +169,14 @@ function displayAccounts(accounts) {
 
         // Show disconnect button if LinkedIn account exists
         const linkedinAccount = accounts.find(acc => acc.provider === 'linkedin');
-        if (linkedinAccount) {
+        if (linkedinAccount && disconnectBtn) {
             disconnectBtn.style.display = 'block';
         }
     } else {
         accountsList.innerHTML = '<p class="text-muted">No accounts connected yet.</p>';
-        disconnectBtn.style.display = 'none';
+        if (disconnectBtn) {
+            disconnectBtn.style.display = 'none';
+        }
     }
 }
 
@@ -206,10 +220,10 @@ async function connectLinkedIn() {
 
         const data = await response.json();
 
-        if (response.status === 202) {
+        if (response.status === 201) {
             // Checkpoint required
             currentAccountID = data.account_id;
-            showCheckpointSection(data.checkpoint);
+            showCheckpointSection(data.checkpoint, data.expires_at);
             showAlert('Checkpoint required: ' + data.checkpoint.type, 'info');
         } else if (response.ok) {
             showAlert('LinkedIn account connected successfully!', 'success');
@@ -229,53 +243,270 @@ async function connectLinkedIn() {
 }
 
 // Show checkpoint section
-function showCheckpointSection(checkpoint) {
+function showCheckpointSection(checkpoint, expiresAt) {
     const checkpointSection = document.getElementById('checkpointSection');
     const checkpointType = document.getElementById('checkpointType');
+    const checkpointAlert = document.getElementById('checkpointAlert');
+    const checkpointCodeInput = document.getElementById('checkpointCode');
+    const checkpointLabel = document.querySelector('label[for="checkpointCode"]');
 
+    // Update checkpoint type display
     checkpointType.textContent = checkpoint.type;
+
+    // Update UI based on checkpoint type
+    switch (checkpoint.type) {
+        case '2FA':
+        case 'OTP':
+            checkpointAlert.innerHTML = `
+                <strong>Two-Factor Authentication Required</strong><br>
+                Please enter the 6-digit code from your authenticator app or SMS.
+            `;
+            checkpointLabel.textContent = 'Verification Code';
+            checkpointCodeInput.placeholder = 'Enter 6-digit code';
+            checkpointCodeInput.maxLength = 6;
+            checkpointCodeInput.type = 'text';
+            break;
+        case 'IN_APP_VALIDATION':
+            checkpointAlert.innerHTML = `
+                <strong>LinkedIn App Verification Required</strong><br>
+                Please check your LinkedIn mobile app and confirm the connection.
+            `;
+            checkpointLabel.textContent = 'Confirmation Code (if any)';
+            checkpointCodeInput.placeholder = 'Enter confirmation code if prompted';
+            checkpointCodeInput.maxLength = 10;
+            checkpointCodeInput.type = 'text';
+            break;
+        case 'CAPTCHA':
+            checkpointAlert.innerHTML = `
+                <strong>CAPTCHA Verification Required</strong><br>
+                Please solve the CAPTCHA challenge.
+            `;
+            checkpointLabel.textContent = 'CAPTCHA Solution';
+            checkpointCodeInput.placeholder = 'Enter CAPTCHA solution';
+            checkpointCodeInput.maxLength = 20;
+            checkpointCodeInput.type = 'text';
+            break;
+        case 'PHONE_REGISTER':
+            checkpointAlert.innerHTML = `
+                <strong>Phone Verification Required</strong><br>
+                Please enter your phone number to receive a verification code.
+            `;
+            checkpointLabel.textContent = 'Phone Number';
+            checkpointCodeInput.placeholder = '+1234567890';
+            checkpointCodeInput.maxLength = 15;
+            checkpointCodeInput.type = 'tel';
+            break;
+        default:
+            checkpointAlert.innerHTML = `
+                <strong>Verification Required</strong><br>
+                Please complete the verification process.
+            `;
+            checkpointLabel.textContent = 'Verification Code';
+            checkpointCodeInput.placeholder = 'Enter verification code';
+            checkpointCodeInput.maxLength = 10;
+            checkpointCodeInput.type = 'text';
+    }
+
+    // Add expiration timer if provided
+    if (expiresAt) {
+        const expirationTime = new Date(expiresAt).getTime();
+        const now = new Date().getTime();
+        const timeLeft = expirationTime - now;
+
+        if (timeLeft > 0) {
+            startExpirationTimer(timeLeft);
+        }
+    }
+
     checkpointSection.style.display = 'block';
+    checkpointCodeInput.value = ''; // Clear previous input
+
+    // Add keyboard support
+    checkpointCodeInput.addEventListener('keypress', function (e) {
+        if (e.key === 'Enter') {
+            solveCheckpoint();
+        }
+    });
+
+    // Focus on input
+    setTimeout(() => {
+        checkpointCodeInput.focus();
+    }, 300);
 
     // Scroll to checkpoint section
     checkpointSection.scrollIntoView({ behavior: 'smooth' });
 }
 
+// Start expiration timer
+function startExpirationTimer(timeLeft) {
+    const timerElement = document.createElement('div');
+    timerElement.id = 'expirationTimer';
+    timerElement.className = 'alert alert-warning mt-2';
+
+    const checkpointAlert = document.getElementById('checkpointAlert');
+    checkpointAlert.appendChild(timerElement);
+
+    const timer = setInterval(() => {
+        const minutes = Math.floor(timeLeft / 60000);
+        const seconds = Math.floor((timeLeft % 60000) / 1000);
+
+        timerElement.innerHTML = `
+            <strong>Time remaining:</strong> ${minutes}:${seconds.toString().padStart(2, '0')}
+        `;
+
+        timeLeft -= 1000;
+
+        if (timeLeft <= 0) {
+            clearInterval(timer);
+            timerElement.innerHTML = '<strong>Checkpoint expired!</strong> Please start over.';
+            timerElement.className = 'alert alert-danger mt-2';
+            document.getElementById('checkpointCode').disabled = true;
+            document.querySelector('button[onclick="solveCheckpoint()"]').disabled = true;
+        }
+    }, 1000);
+}
+
+// Validate checkpoint input based on type
+function validateCheckpointInput(code, checkpointType) {
+    if (!code) {
+        return 'Please enter verification code';
+    }
+
+    switch (checkpointType) {
+        case '2FA':
+        case 'OTP':
+            if (!/^\d{6}$/.test(code)) {
+                return 'Please enter a valid 6-digit code';
+            }
+            break;
+        case 'PHONE_REGISTER':
+            if (!/^\+?[\d\s\-\(\)]{10,15}$/.test(code)) {
+                return 'Please enter a valid phone number (e.g., +1234567890)';
+            }
+            break;
+        case 'CAPTCHA':
+            if (code.length < 3) {
+                return 'CAPTCHA solution too short';
+            }
+            break;
+    }
+
+    return null; // No validation error
+}
+
 // Solve checkpoint
 async function solveCheckpoint() {
-    const code = document.getElementById('checkpointCode').value;
+    console.log('solveCheckpoint called'); // Debug log
 
-    if (!code) {
-        showAlert('Please enter verification code', 'danger');
+    // Check if checkpoint section exists and is visible
+    const checkpointSection = document.getElementById('checkpointSection');
+    if (!checkpointSection || checkpointSection.style.display === 'none') {
+        console.error('Checkpoint section not visible');
+        showAlert('No active checkpoint found. Please try connecting again.', 'danger');
         return;
     }
 
+    const code = document.getElementById('checkpointCode').value;
+    const checkpointTypeElement = document.getElementById('checkpointType');
+    const checkpointType = checkpointTypeElement ? checkpointTypeElement.textContent : 'UNKNOWN';
+
+    console.log('Code:', code, 'Type:', checkpointType, 'AccountID:', currentAccountID); // Debug log
+
+    const validationError = validateCheckpointInput(code, checkpointType);
+    if (validationError) {
+        console.log('Validation error:', validationError); // Debug log
+        showAlert(validationError, 'danger');
+        return;
+    }
+
+    // Check if we have a valid account ID
+    if (!currentAccountID) {
+        console.error('No currentAccountID available'); // Debug log
+        showAlert('No account ID available. Please try connecting again.', 'danger');
+        return;
+    }
+
+    // Show loading state
+    const submitBtn = document.querySelector('button[onclick="solveCheckpoint()"]');
+    if (submitBtn) {
+        const originalText = submitBtn.innerHTML;
+        submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Submitting...';
+        submitBtn.disabled = true;
+    }
+
     try {
+        console.log('Sending request to /api/v1/accounts/linkedin/checkpoint'); // Debug log
+
+        const requestBody = {
+            account_id: currentAccountID,
+            code: code
+        };
+
+        console.log('Request body:', requestBody); // Debug log
+        console.log('Headers:', getAuthHeaders()); // Debug log
+
         const response = await fetch('/api/v1/accounts/linkedin/checkpoint', {
             method: 'POST',
             headers: getAuthHeaders(),
-            body: JSON.stringify({
-                account_id: currentAccountID,
-                code: code
-            })
+            body: JSON.stringify(requestBody)
         });
 
-        const data = await response.json();
+        console.log('Response status:', response.status); // Debug log
 
-        if (response.status === 202) {
-            // Another checkpoint required
-            showAlert('Another checkpoint required: ' + data.checkpoint.type, 'info');
-            document.getElementById('checkpointCode').value = '';
-        } else if (response.ok) {
+        const data = await response.json();
+        console.log('Response data:', data); // Debug log
+
+        if (response.ok) {
             showAlert('LinkedIn account connected successfully!', 'success');
             hideCheckpointSection();
             loadUserAccounts();
+        } else if (response.status === 401 && data.type === 'ErrInvalidCodeOrExpiredCheckpoint') {
+            showAlert('Invalid code or checkpoint expired. Please try again.', 'danger');
+            document.getElementById('checkpointCode').value = '';
         } else {
             showAlert(data.error || 'Failed to solve checkpoint', 'danger');
         }
     } catch (error) {
+        console.error('Error in solveCheckpoint:', error); // Debug log
         showAlert('Network error. Please try again.', 'danger');
+    } finally {
+        // Restore button state
+        if (submitBtn) {
+            submitBtn.innerHTML = originalText;
+            submitBtn.disabled = false;
+        }
     }
 }
+
+// Test function to manually show checkpoint section
+function testCheckpoint() {
+    console.log('Testing checkpoint section...');
+
+    const checkpointSection = document.getElementById('checkpointSection');
+    const checkpointType = document.getElementById('checkpointType');
+    const checkpointCode = document.getElementById('checkpointCode');
+
+    console.log('Checkpoint section:', !!checkpointSection);
+    console.log('Checkpoint type element:', !!checkpointType);
+    console.log('Checkpoint code element:', !!checkpointCode);
+
+    if (checkpointSection && checkpointType && checkpointCode) {
+        // Set test data
+        currentAccountID = 'test-account-id-123';
+        checkpointType.textContent = '2FA';
+        checkpointSection.style.display = 'block';
+        checkpointCode.value = '123456';
+
+        console.log('Test checkpoint section shown');
+        showAlert('Test checkpoint section activated', 'info');
+    } else {
+        console.error('Missing checkpoint elements');
+        showAlert('Checkpoint elements not found in HTML', 'danger');
+    }
+}
+
+// Make test function available globally
+window.testCheckpoint = testCheckpoint;
 
 // Cancel checkpoint
 function cancelCheckpoint() {
@@ -286,8 +517,24 @@ function cancelCheckpoint() {
 // Hide checkpoint section
 function hideCheckpointSection() {
     const checkpointSection = document.getElementById('checkpointSection');
+    const checkpointCode = document.getElementById('checkpointCode');
+    const submitBtn = document.querySelector('button[onclick="solveCheckpoint()"]');
+
+    // Clean up timer if it exists
+    const timerElement = document.getElementById('expirationTimer');
+    if (timerElement) {
+        timerElement.remove();
+    }
+
+    // Reset form
     checkpointSection.style.display = 'none';
-    document.getElementById('checkpointCode').value = '';
+    checkpointCode.value = '';
+    checkpointCode.disabled = false;
+    submitBtn.disabled = false;
+
+    // Reset checkpoint alert to default
+    const checkpointAlert = document.getElementById('checkpointAlert');
+    checkpointAlert.innerHTML = '<strong>Checkpoint Required:</strong> <span id="checkpointType"></span>';
 }
 
 // Disconnect LinkedIn account
