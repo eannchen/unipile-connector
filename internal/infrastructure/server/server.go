@@ -14,6 +14,8 @@ import (
 	"unipile-connector/internal/infrastructure/client"
 	"unipile-connector/internal/usecase/account"
 	"unipile-connector/internal/usecase/user"
+	"unipile-connector/pkg/jwt"
+	jwtMiddleware "unipile-connector/pkg/middleware"
 )
 
 // Server holds server dependencies
@@ -23,6 +25,7 @@ type Server struct {
 	authHandler    *handler.AuthHandler
 	accountHandler *handler.AccountHandler
 	authMiddleware *middleware.AuthMiddleware
+	jwtMiddleware  *jwtMiddleware.JWTMiddleware
 	logger         *logrus.Logger
 }
 
@@ -32,13 +35,19 @@ func NewServer(
 	accountRepo repository.AccountRepository,
 	unipileClient *client.UnipileClient,
 	logger *logrus.Logger,
+	jwtSecretKey string,
+	jwtIssuer string,
 ) *Server {
 	// Initialize use cases
 	userUsecase := user.NewUserUsecase(userRepo)
 	accountUsecase := account.NewAccountUsecase(accountRepo)
 
+	// Initialize JWT service
+	jwtService := jwt.NewJWTService(jwtSecretKey, jwtIssuer)
+	jwtMiddleware := jwtMiddleware.NewJWTMiddleware(jwtService)
+
 	// Initialize handlers
-	authHandler := handler.NewAuthHandler(userUsecase, logger)
+	authHandler := handler.NewAuthHandler(userUsecase, jwtService, logger)
 	accountHandler := handler.NewAccountHandler(accountUsecase, unipileClient, logger)
 	authMiddleware := middleware.NewAuthMiddleware(userUsecase, logger)
 
@@ -51,6 +60,7 @@ func NewServer(
 		authHandler:    authHandler,
 		accountHandler: accountHandler,
 		authMiddleware: authMiddleware,
+		jwtMiddleware:  jwtMiddleware,
 		logger:         logger,
 	}
 
@@ -81,10 +91,12 @@ func (s *Server) setupRoutes() {
 		// Public routes
 		api.POST("/auth/register", s.authHandler.Register)
 		api.POST("/auth/login", s.authHandler.Login)
+		api.POST("/auth/logout", s.authHandler.Logout)
+		api.POST("/auth/refresh", s.authHandler.RefreshToken)
 
 		// Protected routes
 		protected := api.Group("/")
-		protected.Use(s.authMiddleware.SimpleAuthMiddleware())
+		protected.Use(s.jwtMiddleware.AuthMiddleware())
 		{
 			protected.GET("/auth/me", s.authHandler.GetCurrentUser)
 			protected.POST("/accounts/linkedin/connect", s.accountHandler.ConnectLinkedIn)

@@ -67,7 +67,7 @@ func main() {
 	}
 
 	// Initialize server
-	srv := server.NewServer(userRepo, accountRepo, unipileClient, log)
+	srv := server.NewServer(userRepo, accountRepo, unipileClient, log, cfg.JWT.SecretKey, cfg.JWT.Issuer)
 
 	// Start server
 	addr := cfg.Server.Host + ":" + cfg.Server.Port

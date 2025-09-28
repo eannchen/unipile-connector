@@ -2,22 +2,26 @@ package handler
 
 import (
 	"net/http"
-	"unipile-connector/internal/usecase/user"
 
 	"github.com/gin-gonic/gin"
 	"github.com/sirupsen/logrus"
+
+	"unipile-connector/internal/usecase/user"
+	"unipile-connector/pkg/jwt"
 )
 
 // AuthHandler handles authentication requests
 type AuthHandler struct {
 	userUsecase *user.UserUsecase
+	jwtService  *jwt.JWTService
 	logger      *logrus.Logger
 }
 
 // NewAuthHandler creates a new auth handler
-func NewAuthHandler(userUsecase *user.UserUsecase, logger *logrus.Logger) *AuthHandler {
+func NewAuthHandler(userUsecase *user.UserUsecase, jwtService *jwt.JWTService, logger *logrus.Logger) *AuthHandler {
 	return &AuthHandler{
 		userUsecase: userUsecase,
+		jwtService:  jwtService,
 		logger:      logger,
 	}
 }
@@ -78,14 +82,63 @@ func (h *AuthHandler) Login(c *gin.Context) {
 		return
 	}
 
-	// Set session or JWT token here
+	// Generate JWT token
+	token, err := h.jwtService.GenerateToken(user.ID, user.Username)
+	if err != nil {
+		h.logger.WithError(err).Error("Failed to generate token")
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to generate token"})
+		return
+	}
+
 	c.JSON(http.StatusOK, gin.H{
 		"message": "Login successful",
+		"token":   token,
 		"user": gin.H{
 			"id":       user.ID,
 			"username": user.Username,
 			"email":    user.Email,
 		},
+	})
+}
+
+// Logout handles user logout
+func (h *AuthHandler) Logout(c *gin.Context) {
+	// TODO:
+	// In a stateless JWT system, logout is handled on the client side
+	// by removing the token from storage. However, we can add token
+	// blacklisting here if needed for enhanced security.
+
+	c.JSON(http.StatusOK, gin.H{
+		"message": "Logout successful",
+	})
+}
+
+// RefreshToken handles token refresh
+func (h *AuthHandler) RefreshToken(c *gin.Context) {
+	// Get current token from Authorization header
+	authHeader := c.GetHeader("Authorization")
+	if authHeader == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Authorization header required"})
+		return
+	}
+
+	// Extract token
+	tokenString := authHeader
+	if len(authHeader) > 7 && authHeader[:7] == "Bearer " {
+		tokenString = authHeader[7:]
+	}
+
+	// Refresh token
+	newToken, err := h.jwtService.RefreshToken(tokenString)
+	if err != nil {
+		h.logger.WithError(err).Error("Failed to refresh token")
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "Invalid or expired token"})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"message": "Token refreshed successfully",
+		"token":   newToken,
 	})
 }
 

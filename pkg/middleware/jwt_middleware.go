@@ -1,0 +1,104 @@
+package middleware
+
+import (
+	"net/http"
+	"strings"
+
+	"unipile-connector/pkg/jwt"
+
+	"github.com/gin-gonic/gin"
+)
+
+// JWTMiddleware handles JWT authentication
+type JWTMiddleware struct {
+	jwtService *jwt.JWTService
+}
+
+// NewJWTMiddleware creates a new JWT middleware
+func NewJWTMiddleware(jwtService *jwt.JWTService) *JWTMiddleware {
+	return &JWTMiddleware{
+		jwtService: jwtService,
+	}
+}
+
+// AuthMiddleware validates JWT tokens
+func (m *JWTMiddleware) AuthMiddleware() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		// Get token from Authorization header
+		authHeader := c.GetHeader("Authorization")
+		if authHeader == "" {
+			c.JSON(http.StatusUnauthorized, gin.H{"error": "Authorization header required"})
+			c.Abort()
+			return
+		}
+
+		// Check if header starts with "Bearer "
+		if !strings.HasPrefix(authHeader, "Bearer ") {
+			c.JSON(http.StatusUnauthorized, gin.H{"error": "Invalid authorization header format"})
+			c.Abort()
+			return
+		}
+
+		// Extract token
+		tokenString := strings.TrimPrefix(authHeader, "Bearer ")
+		if tokenString == "" {
+			c.JSON(http.StatusUnauthorized, gin.H{"error": "Token required"})
+			c.Abort()
+			return
+		}
+
+		// Validate token
+		claims, err := m.jwtService.ValidateToken(tokenString)
+		if err != nil {
+			c.JSON(http.StatusUnauthorized, gin.H{"error": "Invalid or expired token"})
+			c.Abort()
+			return
+		}
+
+		// Set user info in context
+		c.Set("user_id", claims.UserID)
+		c.Set("username", claims.Username)
+		c.Set("token_claims", claims)
+
+		c.Next()
+	}
+}
+
+// OptionalAuthMiddleware validates JWT tokens but doesn't require them
+func (m *JWTMiddleware) OptionalAuthMiddleware() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		// Get token from Authorization header
+		authHeader := c.GetHeader("Authorization")
+		if authHeader == "" {
+			c.Next()
+			return
+		}
+
+		// Check if header starts with "Bearer "
+		if !strings.HasPrefix(authHeader, "Bearer ") {
+			c.Next()
+			return
+		}
+
+		// Extract token
+		tokenString := strings.TrimPrefix(authHeader, "Bearer ")
+		if tokenString == "" {
+			c.Next()
+			return
+		}
+
+		// Validate token
+		claims, err := m.jwtService.ValidateToken(tokenString)
+		if err != nil {
+			c.Next()
+			return
+		}
+
+		// Set user info in context if token is valid
+		c.Set("user_id", claims.UserID)
+		c.Set("username", claims.Username)
+		c.Set("token_claims", claims)
+
+		c.Next()
+	}
+}

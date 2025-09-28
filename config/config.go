@@ -15,6 +15,7 @@ type Config struct {
 	Database DatabaseConfig
 	Unipile  UnipileConfig
 	Redis    RedisConfig
+	JWT      JWTConfig
 }
 
 // ServerConfig holds server configuration
@@ -45,6 +46,12 @@ type RedisConfig struct {
 	Port     int
 	Password string
 	DB       int
+}
+
+// JWTConfig holds JWT configuration
+type JWTConfig struct {
+	SecretKey string
+	Issuer    string
 }
 
 // Load loads configuration from .env file and environment variables
@@ -129,6 +136,10 @@ func Load(path string) (*Config, error) {
 	if config.Redis.Port == 0 {
 		config.Redis.Port = 6379
 	}
+
+	// jwt
+	config.JWT.SecretKey = viper.GetString("jwt_secret_key")
+	config.JWT.Issuer = viper.GetString("jwt_issuer")
 
 	return &config, nil
 }
