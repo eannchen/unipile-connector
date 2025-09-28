@@ -80,6 +80,10 @@ func (a *AccountUsecase) ConnectLinkedInAccount(ctx context.Context, userID uint
 			return err
 		}
 		if account != nil { // Account already exists and connected
+			connResp = &ConnectLinkedInResponse{
+				Success: true,
+				Account: account,
+			}
 			return nil
 		}
 
