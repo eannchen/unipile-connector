@@ -69,8 +69,7 @@ func RunMigrations(db *gorm.DB) error {
 						account_id VARCHAR(255) NOT NULL,
 						created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
 						updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-						deleted_at TIMESTAMP NULL,
-						UNIQUE(user_id, provider)
+						deleted_at TIMESTAMP NULL
 					);
 				`).Error; err != nil {
 					return err
@@ -87,6 +86,9 @@ func RunMigrations(db *gorm.DB) error {
 					return err
 				}
 				if err := tx.Exec(`CREATE INDEX IF NOT EXISTS idx_accounts_provider ON accounts(provider);`).Error; err != nil {
+					return err
+				}
+				if err := tx.Exec(`CREATE UNIQUE INDEX accounts_user_id_provider_unique_active ON accounts (user_id, provider) WHERE (deleted_at IS NULL)`).Error; err != nil {
 					return err
 				}
 
