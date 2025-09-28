@@ -41,7 +41,7 @@ type ConnectLinkedInResponse struct {
 	Object     string      `json:"object"`
 	AccountID  string      `json:"account_id"`
 	Checkpoint *Checkpoint `json:"checkpoint,omitempty"`
-	Status     string      `json:"status,omitempty"`
+	Status     interface{} `json:"status,omitempty"` // Can be string or number
 }
 
 // Checkpoint represents a LinkedIn authentication checkpoint
@@ -61,6 +61,75 @@ type AccountStatusResponse struct {
 	Object    string `json:"object"`
 	AccountID string `json:"account_id"`
 	Status    string `json:"status"` // "OK", "CHECKPOINT", "ERROR"
+}
+
+// AccountListResponse represents the response from listing accounts
+type AccountListResponse struct {
+	Object string    `json:"object"`
+	Items  []Account `json:"items"`
+	Cursor *string   `json:"cursor"`
+}
+
+// Account represents a single account in the list
+type Account struct {
+	Object           string                 `json:"object"`
+	ConnectionParams map[string]interface{} `json:"connection_params"`
+	Name             string                 `json:"name"`
+	Type             string                 `json:"type"`
+	CreatedAt        string                 `json:"created_at"`
+	Sources          []AccountSource        `json:"sources"`
+	ID               string                 `json:"id"`
+	Groups           []string               `json:"groups"`
+}
+
+// AccountSource represents a source within an account
+type AccountSource struct {
+	ID     string `json:"id"`
+	Status string `json:"status"`
+}
+
+// ListAccounts lists all accounts from Unipile API
+func (c *UnipileClient) ListAccounts() (*AccountListResponse, error) {
+	url := fmt.Sprintf("%s/api/v1/accounts", c.baseURL)
+
+	httpReq, err := http.NewRequest("GET", url, nil)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create request: %w", err)
+	}
+
+	httpReq.Header.Set("X-API-KEY", c.apiKey)
+	httpReq.Header.Set("accept", "application/json")
+
+	resp, err := c.httpClient.Do(httpReq)
+	if err != nil {
+		return nil, fmt.Errorf("failed to make request: %w", err)
+	}
+	defer resp.Body.Close()
+
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read response: %w", err)
+	}
+
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("unipile API error (status %d): %s", resp.StatusCode, string(body))
+	}
+
+	var response AccountListResponse
+	if err := json.Unmarshal(body, &response); err != nil {
+		return nil, fmt.Errorf("failed to unmarshal response: %w", err)
+	}
+
+	return &response, nil
+}
+
+// TestConnection tests the connection to Unipile API by calling ListAccounts
+func (c *UnipileClient) TestConnection() error {
+	_, err := c.ListAccounts()
+	if err != nil {
+		return fmt.Errorf("unipile API health check failed: %w", err)
+	}
+	return nil
 }
 
 // ConnectLinkedIn connects a LinkedIn account using Unipile
@@ -194,30 +263,4 @@ func (c *UnipileClient) GetAccountStatus(accountID string) (*AccountStatusRespon
 	}
 
 	return &response, nil
-}
-
-// TestConnection tests the connection to Unipile API
-func (c *UnipileClient) TestConnection() error {
-	// Simple health check - try to get accounts list
-	url := fmt.Sprintf("%s/api/v1/accounts", c.baseURL)
-
-	httpReq, err := http.NewRequest("GET", url, nil)
-	if err != nil {
-		return fmt.Errorf("failed to create request: %w", err)
-	}
-
-	httpReq.Header.Set("X-API-KEY", c.apiKey)
-	httpReq.Header.Set("accept", "application/json")
-
-	resp, err := c.httpClient.Do(httpReq)
-	if err != nil {
-		return fmt.Errorf("failed to make request: %w", err)
-	}
-	defer resp.Body.Close()
-
-	if resp.StatusCode != http.StatusOK {
-		return fmt.Errorf("unipile API health check failed with status: %d", resp.StatusCode)
-	}
-
-	return nil
 }
