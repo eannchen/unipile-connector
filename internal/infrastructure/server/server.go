@@ -1,21 +1,25 @@
 package server
 
 import (
+	"context"
 	"net/http"
+	"time"
+
+	"github.com/gin-gonic/gin"
+	"github.com/sirupsen/logrus"
+
 	"unipile-connector/internal/adapter/handler"
 	"unipile-connector/internal/adapter/middleware"
 	"unipile-connector/internal/domain/repository"
 	"unipile-connector/internal/infrastructure/client"
 	"unipile-connector/internal/usecase/account"
 	"unipile-connector/internal/usecase/user"
-
-	"github.com/gin-gonic/gin"
-	"github.com/sirupsen/logrus"
 )
 
 // Server holds server dependencies
 type Server struct {
 	router         *gin.Engine
+	httpServer     *http.Server
 	authHandler    *handler.AuthHandler
 	accountHandler *handler.AccountHandler
 	authMiddleware *middleware.AuthMiddleware
@@ -121,5 +125,22 @@ func (s *Server) serveDashboardPage(c *gin.Context) {
 
 // Run starts the server
 func (s *Server) Run(addr string) error {
-	return s.router.Run(addr)
+	s.httpServer = &http.Server{
+		Addr:         addr,
+		Handler:      s.router,
+		ReadTimeout:  15 * time.Second,
+		WriteTimeout: 15 * time.Second,
+		IdleTimeout:  60 * time.Second,
+	}
+	return s.httpServer.ListenAndServe()
+}
+
+// Shutdown gracefully shuts down the server
+func (s *Server) Shutdown(ctx context.Context) error {
+	if s.httpServer == nil {
+		return nil
+	}
+
+	s.logger.Info("Gracefully shutting down server...")
+	return s.httpServer.Shutdown(ctx)
 }
