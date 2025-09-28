@@ -28,28 +28,6 @@ func NewUnipileClient(baseURL, apiKey string) *UnipileClient {
 	}
 }
 
-// ConnectLinkedInRequest represents the request to connect LinkedIn account
-type ConnectLinkedInRequest struct {
-	Provider    string `json:"provider"` // "LINKEDIN"
-	Username    string `json:"username,omitempty"`
-	Password    string `json:"password,omitempty"`
-	AccessToken string `json:"access_token,omitempty"`
-	UserAgent   string `json:"user_agent,omitempty"`
-}
-
-// ConnectLinkedInResponse represents the response from LinkedIn connection
-type ConnectLinkedInResponse struct {
-	Object     string      `json:"object"`
-	AccountID  string      `json:"account_id"`
-	Checkpoint *Checkpoint `json:"checkpoint,omitempty"`
-	Status     interface{} `json:"status,omitempty"` // Can be string or number
-}
-
-// Checkpoint represents a LinkedIn authentication checkpoint
-type Checkpoint struct {
-	Type string `json:"type"` // "2FA", "OTP", "IN_APP_VALIDATION", "CAPTCHA", "PHONE_REGISTER"
-}
-
 // SolveCheckpointRequest represents request to solve a checkpoint
 type SolveCheckpointRequest struct {
 	Provider  string `json:"provider"` // "LINKEDIN"
@@ -169,6 +147,30 @@ func (c *UnipileClient) DeleteAccount(accountID string) error {
 	}
 }
 
+// ConnectLinkedInRequest represents the request to connect LinkedIn account
+type ConnectLinkedInRequest struct {
+	Provider    string `json:"provider"` // "LINKEDIN"
+	Username    string `json:"username,omitempty"`
+	Password    string `json:"password,omitempty"`
+	AccessToken string `json:"access_token,omitempty"`
+	UserAgent   string `json:"user_agent,omitempty"`
+}
+
+// ConnectLinkedInResponse represents the response from LinkedIn connection
+type ConnectLinkedInResponse struct {
+	Object     string      `json:"object"`
+	AccountID  string      `json:"account_id"`
+	Checkpoint *Checkpoint `json:"checkpoint,omitempty"`
+	Status     int         `json:"status"`
+	RowBody    string      `json:"row_body,omitempty"`
+}
+
+// Checkpoint represents a LinkedIn authentication checkpoint
+type Checkpoint struct {
+	Type   string `json:"type"`   // "2FA", "OTP", "IN_APP_VALIDATION", "CAPTCHA", "PHONE_REGISTER"
+	Source string `json:"source"` // "APP"
+}
+
 // ConnectLinkedIn connects a LinkedIn account using Unipile
 func (c *UnipileClient) ConnectLinkedIn(req *ConnectLinkedInRequest) (*ConnectLinkedInResponse, error) {
 	url := fmt.Sprintf("%s/api/v1/accounts", c.baseURL)
@@ -202,14 +204,12 @@ func (c *UnipileClient) ConnectLinkedIn(req *ConnectLinkedInRequest) (*ConnectLi
 	if err := json.Unmarshal(body, &response); err != nil {
 		return nil, fmt.Errorf("failed to unmarshal response: %w", err)
 	}
+	response.Status = resp.StatusCode
+	response.RowBody = string(body)
 
 	// Handle different response status codes
 	switch resp.StatusCode {
-	case http.StatusOK:
-		// Account connected successfully
-		return &response, nil
-	case http.StatusAccepted:
-		// Checkpoint required
+	case http.StatusOK, http.StatusCreated:
 		return &response, nil
 	default:
 		return nil, fmt.Errorf("unipile API error (status %d): %s", resp.StatusCode, string(body))

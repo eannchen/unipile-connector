@@ -32,9 +32,10 @@ func main() {
 	fmt.Printf("🔑 Using API key: %s...\n", cfg.Unipile.APIKey[:8])
 
 	TestConnection(unipileClient)
-	TestListAccounts(unipileClient)
-	// TestLinkedInConnectionWithCredentials(unipileClient)
-	// TestLinkedInConnectionWithCookie(unipileClient)
+	// TestListAccounts(unipileClient)
+	// TestDeleteAccount(unipileClient)
+	// TestLinkedInConnectionWithCredentials(unipileClient, "your_linkedin_email@example.com", "your_linkedin_password")
+	// TestLinkedInConnectionWithCookie(unipileClient, "your_li_at_cookie_here", "your_user_agent_here")
 	// TestCheckpointSolving(unipileClient, nil)
 	// TestAccountStatusCheck(unipileClient, nil)
 
@@ -84,17 +85,37 @@ func TestListAccounts(unipileClient *client.UnipileClient) {
 	}
 }
 
+// TestDeleteAccount tests the delete account functionality
+func TestDeleteAccount(unipileClient *client.UnipileClient) {
+	fmt.Println("\nTesting delete account...")
+	fmt.Println("   Note: This will test with a non-existent account ID")
+	fmt.Println("   Expected result: Account not found error")
+
+	// Test with a non-existent account ID
+	testAccountID := "non_existent_account_id_12345"
+	fmt.Printf("   Testing deletion of account ID: %s\n", testAccountID)
+
+	err := unipileClient.DeleteAccount(testAccountID)
+	if err != nil {
+		fmt.Printf("❌ Delete account failed (expected): %v\n", err)
+		fmt.Println("   This is expected behavior for a non-existent account")
+	} else {
+		fmt.Printf("✅ Delete account successful!\n")
+		fmt.Println("   Unexpected: Account deletion succeeded with non-existent ID")
+	}
+}
+
 // TestLinkedInConnectionWithCredentials tests the LinkedIn connection with credentials
-func TestLinkedInConnectionWithCredentials(unipileClient *client.UnipileClient) {
-	fmt.Println("\n2️⃣ Testing LinkedIn connection with credentials...")
+func TestLinkedInConnectionWithCredentials(unipileClient *client.UnipileClient, username, password string) {
+	fmt.Println("\nTesting LinkedIn connection with credentials...")
 	fmt.Println("   Note: This will only work with valid LinkedIn credentials")
 	fmt.Println("   You can modify the credentials below for testing")
 
 	// Example credentials - replace with real ones for testing
 	testCredentials := &client.ConnectLinkedInRequest{
 		Provider: "LINKEDIN",
-		Username: "your_linkedin_email@example.com", // Replace with real email
-		Password: "your_linkedin_password",          // Replace with real password
+		Username: username, // Replace with real email
+		Password: password, // Replace with real password
 	}
 
 	fmt.Printf("   Testing with username: %s\n", testCredentials.Username)
@@ -113,43 +134,47 @@ func TestLinkedInConnectionWithCredentials(unipileClient *client.UnipileClient) 
 			fmt.Printf("   Checkpoint required: %s\n", resp.Checkpoint.Type)
 			fmt.Println("   You can use the SolveCheckpoint method to handle this")
 		}
+
+		fmt.Printf("   Row body: %s\n", resp.RowBody)
 	}
 }
 
 // TestLinkedInConnectionWithCookie tests the LinkedIn connection with cookie
-func TestLinkedInConnectionWithCookie(unipileClient *client.UnipileClient) {
-	fmt.Println("\n3️⃣ Testing LinkedIn connection with cookie...")
+func TestLinkedInConnectionWithCookie(unipileClient *client.UnipileClient, accessToken, userAgent string) {
+	fmt.Println("\nTesting LinkedIn connection with cookie...")
 	fmt.Println("   Note: This will only work with a valid li_at cookie")
 	fmt.Println("   You can modify the cookie below for testing")
 
 	// Example cookie - replace with real one for testing
 	testCookie := &client.ConnectLinkedInRequest{
 		Provider:    "LINKEDIN",
-		AccessToken: "your_li_at_cookie_here", // Replace with real li_at cookie
-		UserAgent:   "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36",
+		AccessToken: accessToken, // Replace with real li_at cookie
+		UserAgent:   userAgent,
 	}
 
 	fmt.Printf("   Testing with access token: %s...\n", testCookie.AccessToken[:8])
 
-	resp2, err := unipileClient.ConnectLinkedIn(testCookie)
+	resp, err := unipileClient.ConnectLinkedIn(testCookie)
 	if err != nil {
 		fmt.Printf("❌ LinkedIn cookie connection failed: %v\n", err)
 		fmt.Println("   This is expected if the cookie is invalid or expired")
 	} else {
 		fmt.Printf("✅ LinkedIn cookie connection response received!\n")
-		fmt.Printf("   Object: %s\n", resp2.Object)
-		fmt.Printf("   Account ID: %s\n", resp2.AccountID)
-		fmt.Printf("   Status: %v\n", resp2.Status)
+		fmt.Printf("   Object: %s\n", resp.Object)
+		fmt.Printf("   Account ID: %s\n", resp.AccountID)
+		fmt.Printf("   Status: %v\n", resp.Status)
 
-		if resp2.Checkpoint != nil {
-			fmt.Printf("   Checkpoint required: %s\n", resp2.Checkpoint.Type)
+		if resp.Checkpoint != nil {
+			fmt.Printf("   Checkpoint required: %s\n", resp.Checkpoint.Type)
 		}
+
+		fmt.Printf("   Row body: %s\n", resp.RowBody)
 	}
 }
 
 // TestCheckpointSolving tests the checkpoint solving functionality
 func TestCheckpointSolving(unipileClient *client.UnipileClient, resp *client.ConnectLinkedInResponse) {
-	fmt.Println("\n4️⃣ Testing checkpoint solving...")
+	fmt.Println("\nTesting checkpoint solving...")
 	if resp != nil && resp.AccountID != "" {
 		fmt.Printf("   Using account ID from previous test: %s\n", resp.AccountID)
 
@@ -179,7 +204,7 @@ func TestCheckpointSolving(unipileClient *client.UnipileClient, resp *client.Con
 
 // TestAccountStatusCheck tests the account status check functionality
 func TestAccountStatusCheck(unipileClient *client.UnipileClient, resp *client.ConnectLinkedInResponse) {
-	fmt.Println("\n5️⃣ Testing account status check...")
+	fmt.Println("\nTesting account status check...")
 	if resp != nil && resp.AccountID != "" {
 		fmt.Printf("   Checking status for account ID: %s\n", resp.AccountID)
 

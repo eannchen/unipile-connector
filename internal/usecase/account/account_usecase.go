@@ -3,6 +3,7 @@ package account
 import (
 	"context"
 	"errors"
+	"time"
 
 	"github.com/sirupsen/logrus"
 
@@ -29,33 +30,6 @@ func NewAccountUsecase(accountRepo repository.AccountRepository, txRepo reposito
 	}
 }
 
-// ConnectLinkedInAccount connects a LinkedIn account for a user
-func (a *AccountUsecase) ConnectLinkedInAccount(ctx context.Context, userID uint, accountID string) (*entity.Account, error) {
-	// Check if user already has a LinkedIn account
-	existingAccount, err := a.accountRepo.GetByUserIDAndProvider(ctx, userID, "linkedin")
-	if err == nil && existingAccount != nil {
-		// Update existing account
-		existingAccount.AccountID = accountID
-		if err := a.accountRepo.Update(ctx, existingAccount); err != nil {
-			return nil, err
-		}
-		return existingAccount, nil
-	}
-
-	// Create new account
-	account := &entity.Account{
-		UserID:    userID,
-		Provider:  "linkedin",
-		AccountID: accountID,
-	}
-
-	if err := a.accountRepo.Create(ctx, account); err != nil {
-		return nil, err
-	}
-
-	return account, nil
-}
-
 // ListUserAccounts retrieves all accounts for a user
 func (a *AccountUsecase) ListUserAccounts(ctx context.Context, userID uint) ([]*entity.Account, error) {
 	return a.accountRepo.GetByUserID(ctx, userID)
@@ -76,4 +50,77 @@ func (a *AccountUsecase) DisconnectLinkedIn(ctx context.Context, userID uint) er
 		}
 		return repos.Account.DeleteByUserIDAndProvider(ctx, userID, "LINKEDIN")
 	})
+}
+
+// ConnectLinkedInRequest represents request to connect LinkedIn account via Unipile
+type ConnectLinkedInRequest struct {
+	Username    string
+	Password    string
+	AccessToken string
+	UserAgent   string
+}
+
+// ConnectLinkedInResponse represents response from Unipile connection
+type ConnectLinkedInResponse struct {
+	Success     bool
+	Account     *entity.Account
+	Checkpoint  *client.Checkpoint
+	ExpiresAt   time.Time
+	RowResponse string
+}
+
+// ConnectLinkedInAccount connects a LinkedIn account for a user
+func (a *AccountUsecase) ConnectLinkedInAccount(ctx context.Context, userID uint, req *ConnectLinkedInRequest) (*ConnectLinkedInResponse, error) {
+
+	var connResp *ConnectLinkedInResponse
+
+	err := a.txRepo.Do(ctx, func(repos *repository.Repositories) error {
+		account, err := repos.Account.GetByUserIDAndProviderForUpdate(ctx, userID, "LINKEDIN")
+		if err != nil && !errors.Is(err, repository.ErrAccountNotFound) {
+			return err
+		}
+		if account != nil { // Account already exists and connected
+			return nil
+		}
+
+		resp, err := a.unipileClient.ConnectLinkedIn(&client.ConnectLinkedInRequest{
+			Provider:    "LINKEDIN",
+			Username:    req.Username,
+			Password:    req.Password,
+			AccessToken: req.AccessToken,
+			UserAgent:   req.UserAgent,
+		})
+		if err != nil {
+			return err
+		}
+
+		account = &entity.Account{
+			UserID:    userID,
+			Provider:  "LINKEDIN",
+			AccountID: resp.AccountID,
+		}
+
+		if resp.Checkpoint == nil {
+			if err := a.accountRepo.Create(ctx, account); err != nil {
+				return err
+			}
+			connResp = &ConnectLinkedInResponse{
+				Success: true,
+				Account: account,
+			}
+			return nil
+		}
+
+		connResp = &ConnectLinkedInResponse{
+			Success:     false,
+			Account:     account,
+			Checkpoint:  resp.Checkpoint,
+			ExpiresAt:   time.Now().Add(4 * time.Minute),
+			RowResponse: resp.RowBody,
+		}
+
+		return nil
+	})
+
+	return connResp, err
 }
