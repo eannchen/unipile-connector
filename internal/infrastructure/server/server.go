@@ -31,16 +31,15 @@ type Server struct {
 
 // NewServer creates a new server instance
 func NewServer(
-	userRepo repository.UserRepository,
-	accountRepo repository.AccountRepository,
+	repos repository.Repositories,
 	unipileClient *client.UnipileClient,
 	logger *logrus.Logger,
 	jwtSecretKey string,
 	jwtIssuer string,
 ) *Server {
 	// Initialize use cases
-	userUsecase := user.NewUserUsecase(userRepo)
-	accountUsecase := account.NewAccountUsecase(accountRepo, unipileClient, logger)
+	userUsecase := user.NewUserUsecase(repos.User)
+	accountUsecase := account.NewAccountUsecase(repos.Account, repos.Tx, unipileClient, logger)
 
 	// Initialize JWT service
 	jwtService := jwt.NewJWTService(jwtSecretKey, jwtIssuer)

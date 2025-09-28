@@ -2,6 +2,7 @@ package account
 
 import (
 	"context"
+	"errors"
 
 	"github.com/sirupsen/logrus"
 
@@ -12,14 +13,16 @@ import (
 
 // AccountUsecase handles account business logic
 type AccountUsecase struct {
+	txRepo        repository.TxRepository
 	accountRepo   repository.AccountRepository
 	unipileClient *client.UnipileClient
 	logger        *logrus.Logger
 }
 
 // NewAccountUsecase creates a new account usecase
-func NewAccountUsecase(accountRepo repository.AccountRepository, unipileClient *client.UnipileClient, logger *logrus.Logger) *AccountUsecase {
+func NewAccountUsecase(accountRepo repository.AccountRepository, txRepo repository.TxRepository, unipileClient *client.UnipileClient, logger *logrus.Logger) *AccountUsecase {
 	return &AccountUsecase{
+		txRepo:        txRepo,
 		accountRepo:   accountRepo,
 		unipileClient: unipileClient,
 		logger:        logger,
@@ -60,5 +63,17 @@ func (a *AccountUsecase) ListUserAccounts(ctx context.Context, userID uint) ([]*
 
 // DisconnectLinkedIn disconnects LinkedIn account for a user
 func (a *AccountUsecase) DisconnectLinkedIn(ctx context.Context, userID uint) error {
-	return a.accountRepo.DeleteByUserIDAndProvider(ctx, userID, "LINKEDIN")
+	return a.txRepo.Do(ctx, func(repos *repository.Repositories) error {
+		account, err := repos.Account.GetByUserIDAndProviderForUpdate(ctx, userID, "LINKEDIN")
+		if err != nil {
+			if errors.Is(err, repository.ErrAccountNotFound) {
+				return nil
+			}
+			return err
+		}
+		if err := a.unipileClient.DeleteAccount(account.AccountID); err != nil && err != client.ErrAccountNotFound {
+			return err
+		}
+		return repos.Account.DeleteByUserIDAndProvider(ctx, userID, "LINKEDIN")
+	})
 }

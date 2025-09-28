@@ -56,7 +56,7 @@ func main() {
 	}
 
 	// Initialize repositories
-	userRepo, accountRepo := database.GetRepositories(db)
+	repos := database.GetRepositories(db)
 
 	// Initialize Unipile client
 	unipileClient := client.NewUnipileClient(cfg.Unipile.BaseURL, cfg.Unipile.APIKey)
@@ -67,7 +67,7 @@ func main() {
 	}
 
 	// Initialize server
-	srv := server.NewServer(userRepo, accountRepo, unipileClient, log, cfg.JWT.SecretKey, cfg.JWT.Issuer)
+	srv := server.NewServer(repos, unipileClient, log, cfg.JWT.SecretKey, cfg.JWT.Issuer)
 
 	// Start server
 	addr := cfg.Server.Host + ":" + cfg.Server.Port

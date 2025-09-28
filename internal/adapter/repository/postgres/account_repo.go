@@ -2,10 +2,13 @@ package postgres
 
 import (
 	"context"
-	"unipile-connector/internal/domain/entity"
-	"unipile-connector/internal/domain/repository"
+	"errors"
 
 	"gorm.io/gorm"
+	"gorm.io/gorm/clause"
+
+	"unipile-connector/internal/domain/entity"
+	"unipile-connector/internal/domain/repository"
 )
 
 // accountRepo implements AccountRepository interface
@@ -44,6 +47,21 @@ func (r *accountRepo) GetByUserIDAndProvider(ctx context.Context, userID uint, p
 	var account entity.Account
 	err := r.db.WithContext(ctx).Where("user_id = ? AND provider = ?", userID, provider).First(&account).Error
 	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, repository.ErrAccountNotFound
+		}
+		return nil, err
+	}
+	return &account, nil
+}
+
+func (r *accountRepo) GetByUserIDAndProviderForUpdate(ctx context.Context, userID uint, provider string) (*entity.Account, error) {
+	var account entity.Account
+	err := r.db.WithContext(ctx).Clauses(clause.Locking{Strength: "UPDATE"}).Where("user_id = ? AND provider = ?", userID, provider).First(&account).Error
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, repository.ErrAccountNotFound
+		}
 		return nil, err
 	}
 	return &account, nil
@@ -60,4 +78,3 @@ func (r *accountRepo) Delete(ctx context.Context, id uint) error {
 func (r *accountRepo) DeleteByUserIDAndProvider(ctx context.Context, userID uint, provider string) error {
 	return r.db.WithContext(ctx).Where("user_id = ? AND provider = ?", userID, provider).Delete(&entity.Account{}).Error
 }
-
