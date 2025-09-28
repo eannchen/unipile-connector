@@ -2,11 +2,12 @@ package handler
 
 import (
 	"net/http"
-	"unipile-connector/internal/infrastructure/client"
-	"unipile-connector/internal/usecase/account"
 
 	"github.com/gin-gonic/gin"
 	"github.com/sirupsen/logrus"
+
+	"unipile-connector/internal/infrastructure/client"
+	"unipile-connector/internal/usecase/account"
 )
 
 // AccountHandler handles account-related requests
@@ -32,6 +33,32 @@ type ConnectLinkedInRequest struct {
 	Password    string `json:"password,omitempty"`
 	AccessToken string `json:"access_token,omitempty"`
 	UserAgent   string `json:"user_agent,omitempty"`
+}
+
+// ListUserAccounts retrieves all accounts for the current user
+func (h *AccountHandler) ListUserAccounts(c *gin.Context) {
+	userIDStr, exists := c.Get("user_id")
+	if !exists {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "User not authenticated"})
+		return
+	}
+
+	userID, ok := userIDStr.(uint)
+	if !ok {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Invalid user ID"})
+		return
+	}
+
+	accounts, err := h.accountUsecase.ListUserAccounts(c.Request.Context(), userID)
+	if err != nil {
+		h.logger.WithError(err).Error("Failed to get user accounts")
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to retrieve accounts"})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"accounts": accounts,
+	})
 }
 
 // ConnectLinkedIn handles LinkedIn account connection
@@ -185,62 +212,6 @@ func (h *AccountHandler) SolveCheckpoint(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{
 		"message":    "LinkedIn account connected successfully",
 		"account_id": account.AccountID,
-		"account": gin.H{
-			"id":         account.ID,
-			"provider":   account.Provider,
-			"account_id": account.AccountID,
-			"created_at": account.CreatedAt,
-		},
-	})
-}
-
-// GetUserAccounts retrieves all accounts for the current user
-func (h *AccountHandler) GetUserAccounts(c *gin.Context) {
-	userIDStr, exists := c.Get("user_id")
-	if !exists {
-		c.JSON(http.StatusUnauthorized, gin.H{"error": "User not authenticated"})
-		return
-	}
-
-	userID, ok := userIDStr.(uint)
-	if !ok {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Invalid user ID"})
-		return
-	}
-
-	accounts, err := h.accountUsecase.GetUserAccounts(c.Request.Context(), userID)
-	if err != nil {
-		h.logger.WithError(err).Error("Failed to get user accounts")
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to retrieve accounts"})
-		return
-	}
-
-	c.JSON(http.StatusOK, gin.H{
-		"accounts": accounts,
-	})
-}
-
-// GetLinkedInAccount retrieves LinkedIn account for the current user
-func (h *AccountHandler) GetLinkedInAccount(c *gin.Context) {
-	userIDStr, exists := c.Get("user_id")
-	if !exists {
-		c.JSON(http.StatusUnauthorized, gin.H{"error": "User not authenticated"})
-		return
-	}
-
-	userID, ok := userIDStr.(uint)
-	if !ok {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Invalid user ID"})
-		return
-	}
-
-	account, err := h.accountUsecase.GetLinkedInAccount(c.Request.Context(), userID)
-	if err != nil {
-		c.JSON(http.StatusNotFound, gin.H{"error": "LinkedIn account not found"})
-		return
-	}
-
-	c.JSON(http.StatusOK, gin.H{
 		"account": gin.H{
 			"id":         account.ID,
 			"provider":   account.Provider,

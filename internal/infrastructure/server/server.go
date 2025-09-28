@@ -88,7 +88,7 @@ func (s *Server) setupRoutes() {
 	// API routes
 	api := s.router.Group("/api/v1")
 	{
-		// Public routes
+		// Public routes (Auth routes)
 		api.POST("/auth/register", s.authHandler.Register)
 		api.POST("/auth/login", s.authHandler.Login)
 		api.POST("/auth/logout", s.authHandler.Logout)
@@ -98,11 +98,12 @@ func (s *Server) setupRoutes() {
 		protected := api.Group("/")
 		protected.Use(s.jwtMiddleware.AuthMiddleware())
 		{
+			// Auth routes
 			protected.GET("/auth/me", s.authHandler.GetCurrentUser)
+			// Account routes
+			protected.GET("/accounts", s.accountHandler.ListUserAccounts)
 			protected.POST("/accounts/linkedin/connect", s.accountHandler.ConnectLinkedIn)
 			protected.POST("/accounts/linkedin/checkpoint", s.accountHandler.SolveCheckpoint)
-			protected.GET("/accounts", s.accountHandler.GetUserAccounts)
-			protected.GET("/accounts/linkedin", s.accountHandler.GetLinkedInAccount)
 			protected.DELETE("/accounts/linkedin", s.accountHandler.DisconnectLinkedIn)
 		}
 	}
