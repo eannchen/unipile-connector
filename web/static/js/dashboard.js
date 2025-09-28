@@ -26,13 +26,6 @@ document.addEventListener('DOMContentLoaded', function () {
 
     // Setup connection type toggle
     setupConnectionTypeToggle();
-
-    // Debug: Check if checkpoint section exists
-    const checkpointSection = document.getElementById('checkpointSection');
-    console.log('Checkpoint section exists:', !!checkpointSection);
-    if (checkpointSection) {
-        console.log('Checkpoint section display:', checkpointSection.style.display);
-    }
 });
 
 // Handle navbar brand click - stay on dashboard when logged in
@@ -211,6 +204,15 @@ async function connectLinkedIn() {
         }
     }
 
+    // Show loading state
+    const connectBtn = document.querySelector('button[onclick="connectLinkedIn()"]');
+    let originalText = '';
+    if (connectBtn) {
+        originalText = connectBtn.innerHTML;
+        connectBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Connecting...';
+        connectBtn.disabled = true;
+    }
+
     try {
         const response = await fetch('/api/v1/accounts/linkedin/connect', {
             method: 'POST',
@@ -239,6 +241,12 @@ async function connectLinkedIn() {
         }
     } catch (error) {
         showAlert('Network error. Please try again.', 'danger');
+    } finally {
+        // Restore button state
+        if (connectBtn && originalText) {
+            connectBtn.innerHTML = originalText;
+            connectBtn.disabled = false;
+        }
     }
 }
 
@@ -396,12 +404,9 @@ function validateCheckpointInput(code, checkpointType) {
 
 // Solve checkpoint
 async function solveCheckpoint() {
-    console.log('solveCheckpoint called'); // Debug log
-
     // Check if checkpoint section exists and is visible
     const checkpointSection = document.getElementById('checkpointSection');
     if (!checkpointSection || checkpointSection.style.display === 'none') {
-        console.error('Checkpoint section not visible');
         showAlert('No active checkpoint found. Please try connecting again.', 'danger');
         return;
     }
@@ -410,18 +415,14 @@ async function solveCheckpoint() {
     const checkpointTypeElement = document.getElementById('checkpointType');
     const checkpointType = checkpointTypeElement ? checkpointTypeElement.textContent : 'UNKNOWN';
 
-    console.log('Code:', code, 'Type:', checkpointType, 'AccountID:', currentAccountID); // Debug log
-
     const validationError = validateCheckpointInput(code, checkpointType);
     if (validationError) {
-        console.log('Validation error:', validationError); // Debug log
         showAlert(validationError, 'danger');
         return;
     }
 
     // Check if we have a valid account ID
     if (!currentAccountID) {
-        console.error('No currentAccountID available'); // Debug log
         showAlert('No account ID available. Please try connecting again.', 'danger');
         return;
     }
@@ -435,15 +436,10 @@ async function solveCheckpoint() {
     }
 
     try {
-        console.log('Sending request to /api/v1/accounts/linkedin/checkpoint'); // Debug log
-
         const requestBody = {
             account_id: currentAccountID,
             code: code
         };
-
-        console.log('Request body:', requestBody); // Debug log
-        console.log('Headers:', getAuthHeaders()); // Debug log
 
         const response = await fetch('/api/v1/accounts/linkedin/checkpoint', {
             method: 'POST',
@@ -451,10 +447,7 @@ async function solveCheckpoint() {
             body: JSON.stringify(requestBody)
         });
 
-        console.log('Response status:', response.status); // Debug log
-
         const data = await response.json();
-        console.log('Response data:', data); // Debug log
 
         if (response.ok) {
             showAlert('LinkedIn account connected successfully!', 'success');
@@ -467,7 +460,6 @@ async function solveCheckpoint() {
             showAlert(data.error || 'Failed to solve checkpoint', 'danger');
         }
     } catch (error) {
-        console.error('Error in solveCheckpoint:', error); // Debug log
         showAlert('Network error. Please try again.', 'danger');
     } finally {
         // Restore button state
@@ -543,6 +535,15 @@ async function disconnectLinkedIn() {
         return;
     }
 
+    // Show loading state
+    const disconnectBtn = document.getElementById('disconnectBtn');
+    let originalText = '';
+    if (disconnectBtn) {
+        originalText = disconnectBtn.innerHTML;
+        disconnectBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Disconnecting...';
+        disconnectBtn.disabled = true;
+    }
+
     try {
         const response = await fetch('/api/v1/accounts/linkedin', {
             method: 'DELETE',
@@ -559,6 +560,12 @@ async function disconnectLinkedIn() {
         }
     } catch (error) {
         showAlert('Network error. Please try again.', 'danger');
+    } finally {
+        // Restore button state
+        if (disconnectBtn && originalText) {
+            disconnectBtn.innerHTML = originalText;
+            disconnectBtn.disabled = false;
+        }
     }
 }
 
