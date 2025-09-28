@@ -1,17 +1,21 @@
 // Dashboard JavaScript
 let currentUser = null;
 let currentAccountID = null;
+let authToken = null;
 
 // Check authentication and load dashboard
 document.addEventListener('DOMContentLoaded', function () {
+    const token = localStorage.getItem('authToken');
     const userId = localStorage.getItem('userId');
     const username = localStorage.getItem('username');
 
-    if (!userId || !username) {
-        window.location.href = '/login';
+    if (!token || !userId || !username) {
+        console.log('User not authenticated, redirecting to login');
+        window.location.replace('/login');
         return;
     }
 
+    authToken = token;
     currentUser = { id: userId, username: username };
 
     // Update user info in navbar
@@ -23,6 +27,68 @@ document.addEventListener('DOMContentLoaded', function () {
     // Setup connection type toggle
     setupConnectionTypeToggle();
 });
+
+// Handle navbar brand click - stay on dashboard when logged in
+function handleNavbarBrandClick(event) {
+    event.preventDefault();
+    // When logged in, clicking the brand should stay on dashboard
+    // Just scroll to top or refresh the dashboard
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+// Enhanced logout function
+async function logout() {
+    if (!confirm('Are you sure you want to logout?')) {
+        return;
+    }
+
+    try {
+        // Show loading state
+        const logoutBtn = document.querySelector('button[onclick="logout()"]');
+        const originalText = logoutBtn.textContent;
+        logoutBtn.textContent = 'Logging out...';
+        logoutBtn.disabled = true;
+
+        // Call logout endpoint
+        if (authToken) {
+            await fetch('/api/v1/auth/logout', {
+                method: 'POST',
+                headers: getAuthHeaders()
+            });
+        }
+    } catch (error) {
+        console.warn('Logout request failed:', error);
+    } finally {
+        // Clear local storage regardless of server response
+        authToken = null;
+        localStorage.removeItem('authToken');
+        localStorage.removeItem('userId');
+        localStorage.removeItem('username');
+        localStorage.removeItem('userEmail');
+        currentUser = null;
+
+        // Show success message briefly before redirect
+        showAlert('Logged out successfully!', 'success');
+
+        // Redirect to home page after a short delay
+        setTimeout(() => {
+            window.location.href = '/';
+        }, 1000);
+    }
+}
+
+// Get auth headers for API requests
+function getAuthHeaders() {
+    const headers = {
+        'Content-Type': 'application/json'
+    };
+
+    if (authToken) {
+        headers['Authorization'] = `Bearer ${authToken}`;
+    }
+
+    return headers;
+}
 
 // Setup connection type toggle
 function setupConnectionTypeToggle() {
@@ -46,14 +112,16 @@ function setupConnectionTypeToggle() {
 async function loadUserAccounts() {
     try {
         const response = await fetch('/api/v1/accounts', {
-            headers: {
-                'X-User-ID': currentUser.id
-            }
+            method: 'GET',
+            headers: getAuthHeaders()
         });
 
         if (response.ok) {
             const data = await response.json();
             displayAccounts(data.accounts);
+        } else if (response.status === 401) {
+            // Token expired, redirect to login
+            window.location.href = '/login';
         } else {
             console.error('Failed to load accounts');
         }
@@ -128,10 +196,7 @@ async function connectLinkedIn() {
     try {
         const response = await fetch('/api/v1/accounts/linkedin/connect', {
             method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'X-User-ID': currentUser.id
-            },
+            headers: getAuthHeaders(),
             body: JSON.stringify(requestData)
         });
 
@@ -183,10 +248,7 @@ async function solveCheckpoint() {
     try {
         const response = await fetch('/api/v1/accounts/linkedin/checkpoint', {
             method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'X-User-ID': currentUser.id
-            },
+            headers: getAuthHeaders(),
             body: JSON.stringify({
                 account_id: currentAccountID,
                 code: code
@@ -233,9 +295,7 @@ async function disconnectLinkedIn() {
     try {
         const response = await fetch('/api/v1/accounts/linkedin', {
             method: 'DELETE',
-            headers: {
-                'X-User-ID': currentUser.id
-            }
+            headers: getAuthHeaders()
         });
 
         const data = await response.json();

@@ -1,16 +1,32 @@
 // Authentication JavaScript
 let currentUser = null;
+let authToken = null;
 
 // Check if user is logged in
 function checkAuth() {
+    const token = localStorage.getItem('authToken');
     const userId = localStorage.getItem('userId');
     const username = localStorage.getItem('username');
 
-    if (userId && username) {
+    if (token && userId && username) {
+        authToken = token;
         currentUser = { id: userId, username: username };
         return true;
     }
     return false;
+}
+
+// Get auth headers for API requests
+function getAuthHeaders() {
+    const headers = {
+        'Content-Type': 'application/json'
+    };
+
+    if (authToken) {
+        headers['Authorization'] = `Bearer ${authToken}`;
+    }
+
+    return headers;
 }
 
 // Show alert messages
@@ -53,12 +69,19 @@ document.addEventListener('DOMContentLoaded', function () {
                 const data = await response.json();
 
                 if (response.ok) {
+                    // Store token and user info
+                    authToken = data.token;
+                    localStorage.setItem('authToken', data.token);
                     localStorage.setItem('userId', data.user.id);
                     localStorage.setItem('username', data.user.username);
-                    showAlert('Login successful!', 'success');
+                    localStorage.setItem('userEmail', data.user.email);
+
+                    showAlert('Login successful! Redirecting to dashboard...', 'success');
+
+                    // Immediate redirect to dashboard
                     setTimeout(() => {
-                        window.location.href = '/dashboard';
-                    }, 1000);
+                        window.location.replace('/dashboard');
+                    }, 500);
                 } else {
                     showAlert(data.error || 'Login failed', 'danger');
                 }
@@ -96,9 +119,9 @@ document.addEventListener('DOMContentLoaded', function () {
                 const data = await response.json();
 
                 if (response.ok) {
-                    showAlert('Registration successful! Please login.', 'success');
+                    showAlert('Registration successful! Redirecting to login...', 'success');
                     setTimeout(() => {
-                        window.location.href = '/login';
+                        window.location.replace('/login');
                     }, 1000);
                 } else {
                     showAlert(data.error || 'Registration failed', 'danger');
@@ -110,11 +133,83 @@ document.addEventListener('DOMContentLoaded', function () {
     }
 });
 
-// Logout function
-function logout() {
-    localStorage.removeItem('userId');
-    localStorage.removeItem('username');
-    currentUser = null;
-    window.location.href = '/';
+// Global authentication check - runs on every page
+function globalAuthCheck() {
+    // Only run on non-dashboard pages
+    if (window.location.pathname !== '/dashboard') {
+        if (checkAuth()) {
+            console.log('Global auth check: User is logged in, redirecting to dashboard');
+            window.location.replace('/dashboard');
+        }
+    } else {
+        // On dashboard page, ensure user is authenticated
+        if (!checkAuth()) {
+            console.log('Global auth check: User not authenticated on dashboard, redirecting to login');
+            window.location.replace('/login');
+        }
+    }
 }
 
+// Initialize global auth check
+document.addEventListener('DOMContentLoaded', function () {
+    // Run immediately
+    globalAuthCheck();
+
+    // Also run after a short delay to catch any race conditions
+    setTimeout(globalAuthCheck, 100);
+});
+
+// Check if user is logged in and redirect if needed
+function checkAuthAndRedirect() {
+    if (checkAuth()) {
+        // User is logged in, redirect to dashboard
+        console.log('User is already logged in, redirecting to dashboard');
+        window.location.href = '/dashboard';
+    }
+}
+
+// Force redirect to dashboard for logged-in users
+function redirectToDashboardIfLoggedIn() {
+    if (checkAuth()) {
+        console.log('Redirecting logged-in user to dashboard');
+        window.location.replace('/dashboard');
+    }
+}
+
+// Check authentication on page load and redirect
+function initAuthCheck() {
+    // Small delay to ensure DOM is ready
+    setTimeout(() => {
+        redirectToDashboardIfLoggedIn();
+    }, 100);
+}
+
+// Enhanced logout function
+async function logout() {
+    if (!confirm('Are you sure you want to logout?')) {
+        return;
+    }
+
+    try {
+        // Call logout endpoint (optional, mainly for server-side logging)
+        if (authToken) {
+            await fetch('/api/v1/auth/logout', {
+                method: 'POST',
+                headers: getAuthHeaders()
+            });
+        }
+    } catch (error) {
+        console.warn('Logout request failed:', error);
+    } finally {
+        // Clear local storage regardless of server response
+        authToken = null;
+        localStorage.removeItem('authToken');
+        localStorage.removeItem('userId');
+        localStorage.removeItem('username');
+        localStorage.removeItem('userEmail');
+        currentUser = null;
+
+        // Redirect to home page
+        window.location.href = '/';
+    }
+}
