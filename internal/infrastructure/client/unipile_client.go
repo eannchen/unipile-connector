@@ -3,6 +3,7 @@ package client
 import (
 	"bytes"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -130,6 +131,42 @@ func (c *UnipileClient) TestConnection() error {
 		return fmt.Errorf("unipile API health check failed: %w", err)
 	}
 	return nil
+}
+
+// ErrAccountNotFound is returned when an account is not found
+var ErrAccountNotFound = errors.New("account not found")
+
+// DeleteAccount deletes an account from Unipile API
+func (c *UnipileClient) DeleteAccount(accountID string) error {
+	url := fmt.Sprintf("%s/api/v1/accounts/%s", c.baseURL, accountID)
+
+	httpReq, err := http.NewRequest("DELETE", url, nil)
+	if err != nil {
+		return fmt.Errorf("failed to create request: %w", err)
+	}
+
+	httpReq.Header.Set("X-API-KEY", c.apiKey)
+	httpReq.Header.Set("accept", "application/json")
+
+	resp, err := c.httpClient.Do(httpReq)
+	if err != nil {
+		return fmt.Errorf("failed to make request: %w", err)
+	}
+	defer resp.Body.Close()
+
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return fmt.Errorf("failed to read response: %w", err)
+	}
+
+	switch resp.StatusCode {
+	case http.StatusOK:
+		return nil
+	case http.StatusNotFound:
+		return ErrAccountNotFound
+	default:
+		return fmt.Errorf("unipile API error (status %d): %s", resp.StatusCode, string(body))
+	}
 }
 
 // ConnectLinkedIn connects a LinkedIn account using Unipile
