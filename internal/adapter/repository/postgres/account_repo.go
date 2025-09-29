@@ -34,15 +34,6 @@ func (r *accountRepo) GetByUserID(ctx context.Context, userID uint) ([]*entity.A
 	return accounts, nil
 }
 
-func (r *accountRepo) GetByUserIDAndAccountID(ctx context.Context, userID uint, accountID string) (*entity.Account, error) {
-	var account entity.Account
-	err := r.db.WithContext(ctx).Where("user_id = ? AND account_id = ?", userID, accountID).First(&account).Error
-	if err != nil {
-		return nil, err
-	}
-	return &account, nil
-}
-
 func (r *accountRepo) GetByUserIDAndAccountIDForUpdate(ctx context.Context, userID uint, accountID string) (*entity.Account, error) {
 	var account entity.Account
 	err := r.db.WithContext(ctx).Clauses(clause.Locking{Strength: "UPDATE"}).Where("user_id = ? AND account_id = ?", userID, accountID).First(&account).Error
