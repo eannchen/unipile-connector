@@ -2,7 +2,7 @@
 
 A full-stack web demonstration application enables users to connect their LinkedIn accounts with Unipile’s native authentication mechanism. The application supports both credential-based and cookie-based authentication, with proper checkpoint handling.
 
-> The Unipile API trial on the demonstration site (unipile-connector.onrender.com) will conclude on October 4, 2025.
+> The Unipile API trial on the demonstration site ([unipile-connector.onrender.com](https://unipile-connector.onrender.com)) will conclude on October 4, 2025.
 
 ### Completed
 
@@ -16,6 +16,7 @@ A full-stack web demonstration application enables users to connect their Linked
 - Security Enhancements
   - CORS
   - Rate Limiting
+- Testing
 - Clean Architecture
 - Backend Code Cleanup
 
@@ -29,8 +30,7 @@ A full-stack web demonstration application enables users to connect their Linked
   - `PHONE_REGISTER`
 - Security Enhancements
   - JWT token blacklisting
-- Testing
-- GitHub Actions CI/CD
+- GitHub Actions CI for auto testing
 - UI/UX Enhancement for multiple accounts verification
 - Frontend Code Cleanup
 
