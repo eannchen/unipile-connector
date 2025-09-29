@@ -34,6 +34,12 @@ func main() {
 		log.Fatalf("Failed to load configuration: %v", err)
 	}
 
+	// Parse log level
+	logLevelAfterLoad, err := logrus.ParseLevel(cfg.Log.Level)
+	if err != nil {
+		log.Fatalf("Failed to parse log level: %v", err)
+	}
+
 	// Connect to database
 	db, err := database.Connect(database.Config{
 		Host:     cfg.Database.Host,
@@ -93,8 +99,8 @@ func main() {
 	addr := cfg.Server.Host + ":" + cfg.Server.Port
 	log.Infof("Starting server on %s", addr)
 
-	// Set log level to warn before running server
-	log.SetLevel(logrus.WarnLevel)
+	// Set log level before running server
+	log.SetLevel(logLevelAfterLoad)
 
 	// Start server in a goroutine
 	go func() {

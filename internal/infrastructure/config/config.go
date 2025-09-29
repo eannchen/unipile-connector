@@ -12,6 +12,7 @@ import (
 // Config holds all configuration for the application (for backward compatibility)
 type Config struct {
 	Server   ServerConfig
+	Log      LogConfig
 	Database DatabaseConfig
 	Unipile  UnipileConfig
 	Redis    RedisConfig
@@ -22,6 +23,11 @@ type Config struct {
 type ServerConfig struct {
 	Port string
 	Host string
+}
+
+// LogConfig holds log configuration
+type LogConfig struct {
+	Level string
 }
 
 // DatabaseConfig holds database configuration
@@ -90,6 +96,12 @@ func Load(path string) (*Config, error) {
 	}
 	if len(config.Server.Host) == 0 {
 		config.Server.Host = "0.0.0.0"
+	}
+
+	// log
+	config.Log.Level = viper.GetString("log_level")
+	if config.Log.Level == "" {
+		config.Log.Level = "warn"
 	}
 
 	// database
