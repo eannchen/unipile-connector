@@ -22,6 +22,7 @@ A full-stack web application that allows users to connect their LinkedIn account
     - WebSocket Support (for Real-time frontend updates)
   - CAPTCHA
   - PHONE_REGISTER
+- Corn Job (Remove accounts where checkpoints are expired)
 - Error Recovery
 - Rate Limiting
 - Security Enhancements
