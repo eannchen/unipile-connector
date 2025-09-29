@@ -2,10 +2,11 @@ package postgres
 
 import (
 	"context"
-	"unipile-connector/internal/domain/entity"
-	"unipile-connector/internal/domain/repository"
 
 	"gorm.io/gorm"
+
+	"unipile-connector/internal/domain/entity"
+	"unipile-connector/internal/domain/repository"
 )
 
 // userRepo implements UserRepository interface
@@ -38,12 +39,4 @@ func (r *userRepo) GetByUsername(ctx context.Context, username string) (*entity.
 		return nil, err
 	}
 	return &user, nil
-}
-
-func (r *userRepo) Update(ctx context.Context, user *entity.User) error {
-	return r.db.WithContext(ctx).Save(user).Error
-}
-
-func (r *userRepo) Delete(ctx context.Context, id uint) error {
-	return r.db.WithContext(ctx).Delete(&entity.User{}, id).Error
 }
