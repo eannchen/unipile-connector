@@ -4,9 +4,9 @@ import (
 	"net/http"
 	"strings"
 
-	"unipile-connector/pkg/jwt"
-
 	"github.com/gin-gonic/gin"
+
+	"unipile-connector/pkg/jwt"
 )
 
 // JWTMiddleware handles JWT authentication
@@ -56,45 +56,6 @@ func (m *JWTMiddleware) AuthMiddleware() gin.HandlerFunc {
 		}
 
 		// Set user info in context
-		c.Set("user_id", claims.UserID)
-		c.Set("username", claims.Username)
-		c.Set("token_claims", claims)
-
-		c.Next()
-	}
-}
-
-// OptionalAuthMiddleware validates JWT tokens but doesn't require them
-func (m *JWTMiddleware) OptionalAuthMiddleware() gin.HandlerFunc {
-	return func(c *gin.Context) {
-		// Get token from Authorization header
-		authHeader := c.GetHeader("Authorization")
-		if authHeader == "" {
-			c.Next()
-			return
-		}
-
-		// Check if header starts with "Bearer "
-		if !strings.HasPrefix(authHeader, "Bearer ") {
-			c.Next()
-			return
-		}
-
-		// Extract token
-		tokenString := strings.TrimPrefix(authHeader, "Bearer ")
-		if tokenString == "" {
-			c.Next()
-			return
-		}
-
-		// Validate token
-		claims, err := m.jwtService.ValidateToken(tokenString)
-		if err != nil {
-			c.Next()
-			return
-		}
-
-		// Set user info in context if token is valid
 		c.Set("user_id", claims.UserID)
 		c.Set("username", claims.Username)
 		c.Set("token_claims", claims)

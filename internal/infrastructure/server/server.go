@@ -6,60 +6,33 @@ import (
 	"time"
 
 	"github.com/gin-gonic/gin"
-	"github.com/sirupsen/logrus"
 
-	"unipile-connector/config"
 	"unipile-connector/internal/adapter/handler"
 	"unipile-connector/internal/adapter/middleware"
-	"unipile-connector/internal/domain/repository"
-	"unipile-connector/internal/infrastructure/client"
-	"unipile-connector/internal/usecase/account"
-	"unipile-connector/internal/usecase/user"
-	"unipile-connector/pkg/jwt"
-	jwtMiddleware "unipile-connector/pkg/middleware"
 )
 
 // Server holds server dependencies
 type Server struct {
-	router         *gin.Engine
-	httpServer     *http.Server
-	authHandler    *handler.AuthHandler
-	accountHandler *handler.AccountHandler
-	jwtMiddleware  *jwtMiddleware.JWTMiddleware
-	logger         *logrus.Logger
+	router      *gin.Engine
+	httpServer  *http.Server
+	middlewares *middleware.Middlewares
+	handlers    *handler.Handlers
 }
 
 // NewServer creates a new server instance
 func NewServer(
-	repos repository.Repositories,
-	unipileClient *client.UnipileClient,
-	logger *logrus.Logger,
-	jwtSecretKey string,
-	jwtIssuer string,
-	cfg *config.Config,
+	middlewares *middleware.Middlewares,
+	handlers *handler.Handlers,
 ) *Server {
-	// Initialize JWT service
-	jwtService := jwt.NewJWTService(jwtSecretKey, jwtIssuer)
-	jwtMiddleware := jwtMiddleware.NewJWTMiddleware(jwtService)
-
-	// Initialize use cases
-	userUsecase := user.NewUserUsecase(repos.User, jwtService, logger)
-	accountUsecase := account.NewAccountUsecase(repos.Account, repos.Tx, unipileClient, logger)
-
-	// Initialize handlers
-	authHandler := handler.NewAuthHandler(userUsecase)
-	accountHandler := handler.NewAccountHandler(accountUsecase)
 
 	// Setup router
 	router := gin.Default()
-	router.Use(middleware.CORSMiddleware(cfg))
+	router.Use(middlewares.CORSMiddleware)
 
 	server := &Server{
-		router:         router,
-		authHandler:    authHandler,
-		accountHandler: accountHandler,
-		jwtMiddleware:  jwtMiddleware,
-		logger:         logger,
+		router:      router,
+		middlewares: middlewares,
+		handlers:    handlers,
 	}
 
 	server.setupRoutes()
@@ -87,22 +60,22 @@ func (s *Server) setupRoutes() {
 	api := s.router.Group("/api/v1")
 	{
 		// Public routes (Auth routes)
-		api.POST("/auth/register", s.authHandler.Register)
-		api.POST("/auth/login", s.authHandler.Login)
-		api.POST("/auth/logout", s.authHandler.Logout)
-		api.POST("/auth/refresh", s.authHandler.RefreshToken)
+		api.POST("/auth/register", s.handlers.AuthHandler.Register)
+		api.POST("/auth/login", s.handlers.AuthHandler.Login)
+		api.POST("/auth/logout", s.handlers.AuthHandler.Logout)
+		api.POST("/auth/refresh", s.handlers.AuthHandler.RefreshToken)
 
 		// Protected routes
 		protected := api.Group("/")
-		protected.Use(s.jwtMiddleware.AuthMiddleware())
+		protected.Use(s.middlewares.JWTMiddleware)
 		{
 			// Auth routes
-			protected.GET("/auth/me", s.authHandler.GetCurrentUser)
+			protected.GET("/auth/me", s.handlers.AuthHandler.GetCurrentUser)
 			// Account routes
-			protected.GET("/accounts", s.accountHandler.ListUserAccounts)
-			protected.POST("/accounts/linkedin/connect", s.accountHandler.ConnectLinkedIn)
-			protected.POST("/accounts/linkedin/checkpoint", s.accountHandler.SolveCheckpoint)
-			protected.DELETE("/accounts/linkedin", s.accountHandler.DisconnectLinkedIn)
+			protected.GET("/accounts", s.handlers.AccountHandler.ListUserAccounts)
+			protected.POST("/accounts/linkedin/connect", s.handlers.AccountHandler.ConnectLinkedIn)
+			protected.POST("/accounts/linkedin/checkpoint", s.handlers.AccountHandler.SolveCheckpoint)
+			protected.DELETE("/accounts/linkedin", s.handlers.AccountHandler.DisconnectLinkedIn)
 		}
 	}
 }
@@ -152,7 +125,5 @@ func (s *Server) Shutdown(ctx context.Context) error {
 	if s.httpServer == nil {
 		return nil
 	}
-
-	s.logger.Info("Gracefully shutting down server...")
 	return s.httpServer.Shutdown(ctx)
 }

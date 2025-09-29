@@ -12,9 +12,14 @@ import (
 	"github.com/sirupsen/logrus"
 
 	"unipile-connector/config"
+	"unipile-connector/internal/adapter/handler"
+	"unipile-connector/internal/adapter/middleware"
 	"unipile-connector/internal/infrastructure/client"
 	"unipile-connector/internal/infrastructure/database"
 	"unipile-connector/internal/infrastructure/server"
+	"unipile-connector/internal/usecase/account"
+	"unipile-connector/internal/usecase/user"
+	"unipile-connector/pkg/jwt"
 	"unipile-connector/pkg/logger"
 )
 
@@ -55,9 +60,6 @@ func main() {
 		log.Fatalf("Failed to run migrations: %v", err)
 	}
 
-	// Initialize repositories
-	repos := database.GetRepositories(db)
-
 	// Initialize Unipile client
 	unipileClient := client.NewUnipileClient(cfg.Unipile.BaseURL, cfg.Unipile.APIKey)
 
@@ -66,8 +68,26 @@ func main() {
 		log.Warnf("Failed to connect to Unipile API: %v", err)
 	}
 
+	// Initialize JWT service and middleware
+	jwtService := jwt.NewJWTService(cfg.JWT.SecretKey, cfg.JWT.Issuer)
+	jwtMiddleware := middleware.NewJWTMiddleware(jwtService).AuthMiddleware()
+	corsMiddleware := middleware.CORSMiddleware(cfg)
+	middlewares := middleware.NewMiddlewares(corsMiddleware, jwtMiddleware)
+
+	// Initialize repositories
+	repos := database.GetRepositories(db)
+
+	// Initialize use cases
+	userUsecase := user.NewUserUsecase(repos.User, jwtService, log)
+	accountUsecase := account.NewAccountUsecase(repos.Account, repos.Tx, unipileClient, log)
+
+	// Initialize handlers
+	authHandler := handler.NewAuthHandler(userUsecase)
+	accountHandler := handler.NewAccountHandler(accountUsecase)
+	handlers := handler.NewHandlers(authHandler, accountHandler)
+
 	// Initialize server
-	srv := server.NewServer(repos, unipileClient, log, cfg.JWT.SecretKey, cfg.JWT.Issuer, cfg)
+	srv := server.NewServer(middlewares, handlers)
 
 	// Start server
 	addr := cfg.Server.Host + ":" + cfg.Server.Port
@@ -84,7 +104,7 @@ func main() {
 	quit := make(chan os.Signal, 1)
 	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
 	<-quit
-	log.Info("Shutting down application...")
+	log.Info("Gracefully Shutting down application...")
 
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
