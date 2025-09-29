@@ -298,13 +298,13 @@ async function connectLinkedIn() {
 
         if (response.ok) {
             // Check if account status is not "OK" - meaning checkpoint is required
-            if (data.current_status && data.current_status !== "OK") {
+            if (data.account.current_status && data.account.current_status !== "OK") {
                 // Checkpoint required
-                currentAccountID = data.account_id;
+                currentAccountID = data.account.account_id;
 
                 // Check if there's checkpoint information in account status histories
-                if (data.account_status_histories && data.account_status_histories.length > 0) {
-                    const latestHistory = data.account_status_histories[data.account_status_histories.length - 1];
+                if (data.account.account_status_histories && data.account.account_status_histories.length > 0) {
+                    const latestHistory = data.account.account_status_histories[data.account.account_status_histories.length - 1];
                     showCheckpointSection({
                         type: latestHistory.checkpoint
                     }, latestHistory.checkpoint_expires_at);
@@ -328,7 +328,7 @@ async function connectLinkedIn() {
                 loadUserAccounts();
             }
         } else {
-            showAlert(data.error || 'Failed to connect LinkedIn account', 'danger');
+            showAlert(data.detail || 'Failed to connect LinkedIn account', 'danger');
         }
     } catch (error) {
         showAlert('Network error. Please try again.', 'danger');
@@ -548,7 +548,7 @@ async function solveCheckpoint() {
             showAlert('Invalid code or checkpoint expired. Please try again.', 'danger');
             document.getElementById('checkpointCode').value = '';
         } else {
-            showAlert(data.error || 'Failed to solve checkpoint', 'danger');
+            showAlert(data.detail || 'Failed to solve checkpoint', 'danger');
         }
     } catch (error) {
         showAlert('Network error. Please try again.', 'danger');
@@ -651,7 +651,7 @@ async function disconnectLinkedIn(accountId) {
             showAlert('LinkedIn account disconnected successfully!', 'success');
             loadUserAccounts();
         } else {
-            showAlert(data.error || 'Failed to disconnect LinkedIn account', 'danger');
+            showAlert(data.detail || 'Failed to disconnect LinkedIn account', 'danger');
         }
     } catch (error) {
         showAlert('Network error. Please try again.', 'danger');
@@ -706,7 +706,7 @@ async function cancelConnection(accountId) {
             showAlert('Connection cancelled successfully!', 'success');
             loadUserAccounts();
         } else {
-            showAlert(data.error || 'Failed to cancel connection', 'danger');
+            showAlert(data.detail || 'Failed to cancel connection', 'danger');
         }
     } catch (error) {
         showAlert('Network error. Please try again.', 'danger');

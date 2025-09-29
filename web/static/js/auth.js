@@ -82,7 +82,7 @@ document.addEventListener('DOMContentLoaded', function () {
                         window.location.replace('/dashboard');
                     }, 500);
                 } else {
-                    showAlert(data.error || 'Login failed', 'danger');
+                    showAlert(data.detail || 'Login failed', 'danger');
                 }
             } catch (error) {
                 showAlert('Network error. Please try again.', 'danger');
@@ -122,7 +122,7 @@ document.addEventListener('DOMContentLoaded', function () {
                         window.location.replace('/login');
                     }, 1000);
                 } else {
-                    showAlert(data.error || 'Registration failed', 'danger');
+                    showAlert(data.detail || 'Registration failed', 'danger');
                 }
             } catch (error) {
                 showAlert('Network error. Please try again.', 'danger');
