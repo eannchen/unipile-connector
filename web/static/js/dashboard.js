@@ -150,7 +150,7 @@ function displayAccounts(accounts) {
                         <small>${new Date(account.created_at).toLocaleDateString()}</small>
                     </div>
                     <p class="mb-1">Account ID: ${account.account_id}</p>
-                    <button type="button" class="btn btn-outline-danger btn-sm" onclick="disconnectLinkedIn()"
+                    <button type="button" class="btn btn-outline-danger btn-sm" onclick="disconnectLinkedIn('${account.account_id}')"
                          id="disconnectBtn">
                         Disconnect LinkedIn
                     </button>
@@ -547,7 +547,7 @@ function hideCheckpointSection() {
 }
 
 // Disconnect LinkedIn account
-async function disconnectLinkedIn() {
+async function disconnectLinkedIn(accountId) {
     if (!confirm('Are you sure you want to disconnect your LinkedIn account?')) {
         return;
     }
@@ -562,9 +562,13 @@ async function disconnectLinkedIn() {
     }
 
     try {
+        // Disconnect the LinkedIn account using the provided account ID
         const response = await fetch('/api/v1/accounts/linkedin', {
             method: 'DELETE',
-            headers: getAuthHeaders()
+            headers: getAuthHeaders(),
+            body: JSON.stringify({
+                account_id: accountId
+            })
         });
 
         const data = await response.json();
