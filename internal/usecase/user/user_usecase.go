@@ -18,6 +18,7 @@ type Usecase interface {
 	GetUserByID(ctx context.Context, id uint) (*entity.User, error)
 	CreateUser(ctx context.Context, username, password string) (*entity.User, error)
 	AuthenticateUser(ctx context.Context, username, password string) (*entity.User, string, error)
+	BlacklistToken(ctx context.Context, token string)
 	RefreshToken(ctx context.Context, token string) (string, error)
 }
 
@@ -94,6 +95,11 @@ func (u *UsecaseImpl) AuthenticateUser(ctx context.Context, username, password s
 	}
 
 	return user, token, nil
+}
+
+// BlacklistToken blacklists a token
+func (u *UsecaseImpl) BlacklistToken(ctx context.Context, token string) {
+	u.jwtService.BlacklistToken(token)
 }
 
 // RefreshToken refreshes a token

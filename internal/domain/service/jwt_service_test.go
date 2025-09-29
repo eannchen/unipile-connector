@@ -12,7 +12,8 @@ import (
 )
 
 func TestJWTService_GenerateAndValidateToken(t *testing.T) {
-	service := NewJWTService("secret", "issuer")
+	blacklistService := NewTokenBlacklistService()
+	service := NewJWTService("secret", "issuer", blacklistService)
 
 	token, err := service.GenerateToken(42, "alice")
 	require.NoError(t, err)
@@ -27,14 +28,16 @@ func TestJWTService_GenerateAndValidateToken(t *testing.T) {
 }
 
 func TestJWTService_ValidateToken_Invalid(t *testing.T) {
-	service := NewJWTService("secret", "issuer")
+	blacklistService := NewTokenBlacklistService()
+	service := NewJWTService("secret", "issuer", blacklistService)
 
 	_, err := service.ValidateToken("invalid.token.string")
 	require.Error(t, err)
 }
 
 func TestJWTService_ValidateToken_UnexpectedMethod(t *testing.T) {
-	service := NewJWTService("secret", "issuer")
+	blacklistService := NewTokenBlacklistService()
+	service := NewJWTService("secret", "issuer", blacklistService)
 
 	privKey, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
 	require.NoError(t, err)
@@ -49,7 +52,8 @@ func TestJWTService_ValidateToken_UnexpectedMethod(t *testing.T) {
 }
 
 func TestJWTService_RefreshToken(t *testing.T) {
-	service := NewJWTService("secret", "issuer")
+	blacklistService := NewTokenBlacklistService()
+	service := NewJWTService("secret", "issuer", blacklistService)
 
 	token, err := service.GenerateToken(7, "bob")
 	require.NoError(t, err)
@@ -57,12 +61,14 @@ func TestJWTService_RefreshToken(t *testing.T) {
 	refreshed, err := service.RefreshToken(token)
 	require.NoError(t, err)
 
-	originalClaims, err := service.ValidateToken(token)
-	require.NoError(t, err)
+	// Original token should now be blacklisted
+	_, err = service.ValidateToken(token)
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "token is blacklisted")
+
+	// New token should be valid
 	newClaims, err := service.ValidateToken(refreshed)
 	require.NoError(t, err)
-
-	require.Equal(t, originalClaims.UserID, newClaims.UserID)
-	require.Equal(t, originalClaims.Username, newClaims.Username)
-	require.True(t, newClaims.ExpiresAt.Time.After(originalClaims.ExpiresAt.Time) || newClaims.ExpiresAt.Time.Equal(originalClaims.ExpiresAt.Time))
+	require.Equal(t, uint(7), newClaims.UserID)
+	require.Equal(t, "bob", newClaims.Username)
 }

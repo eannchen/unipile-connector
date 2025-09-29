@@ -77,8 +77,12 @@ func main() {
 		log.Warnf("Failed to connect to Unipile API: %v", err)
 	}
 
+	// Initialize JWT blacklist service
+	blacklistService := service.NewTokenBlacklistService()
+	blacklistService.StartCleanup(context.Background())
+
 	// Initialize JWT service and middleware
-	jwtService := service.NewJWTService(cfg.JWT.SecretKey, cfg.JWT.Issuer)
+	jwtService := service.NewJWTService(cfg.JWT.SecretKey, cfg.JWT.Issuer, blacklistService)
 	jwtMiddleware := middleware.NewJWTMiddleware(jwtService).AuthMiddleware()
 	corsMiddleware := middleware.CORSMiddleware(cfg.Server.Host)
 	rate, err := limiter.NewRateFromFormatted("5-S")
@@ -123,6 +127,9 @@ func main() {
 	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
 	<-quit
 	log.Warn("Gracefully Shutting down application...")
+
+	// Stop blacklist cleanup goroutine
+	blacklistService.StopCleanup()
 
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()

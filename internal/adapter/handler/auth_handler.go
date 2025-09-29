@@ -104,10 +104,22 @@ func (h *AuthHandlerImpl) Login(c *gin.Context) {
 
 // Logout handles user logout
 func (h *AuthHandlerImpl) Logout(c *gin.Context) {
-	// TODO:
-	// In a stateless JWT system, logout is handled on the client side
-	// by removing the token from storage. However, we can add token
-	// blacklisting here if needed for enhanced security.
+	// Get token from Authorization header
+	authHeader := c.GetHeader("Authorization")
+	if authHeader == "" {
+		RespondError(c, errs.WrapValidationError(errors.New("authorization header required"), "Authorization header required"))
+		return
+	}
+
+	// Extract token
+	tokenString := authHeader
+	if len(authHeader) > 7 && authHeader[:7] == "Bearer " {
+		tokenString = authHeader[7:]
+	}
+
+	// Blacklist the token
+	h.userUsecase.BlacklistToken(c.Request.Context(), tokenString)
+
 	RespondSuccess(c, http.StatusOK, "Logout successful", nil)
 }
 

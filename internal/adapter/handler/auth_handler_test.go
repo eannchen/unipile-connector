@@ -21,6 +21,7 @@ type userUsecaseMock struct {
 	authenticateUserFn func(ctx context.Context, username, password string) (*entity.User, string, error)
 	refreshTokenFn     func(ctx context.Context, token string) (string, error)
 	getUserByIDFn      func(ctx context.Context, id uint) (*entity.User, error)
+	blacklistTokenFn   func(ctx context.Context, token string)
 }
 
 func (m *userUsecaseMock) CreateUser(ctx context.Context, username, password string) (*entity.User, error) {
@@ -49,6 +50,12 @@ func (m *userUsecaseMock) GetUserByID(ctx context.Context, id uint) (*entity.Use
 		return nil, nil
 	}
 	return m.getUserByIDFn(ctx, id)
+}
+
+func (m *userUsecaseMock) BlacklistToken(ctx context.Context, token string) {
+	if m.blacklistTokenFn != nil {
+		m.blacklistTokenFn(ctx, token)
+	}
 }
 
 var _ userusecase.Usecase = (*userUsecaseMock)(nil)

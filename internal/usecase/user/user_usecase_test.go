@@ -68,6 +68,10 @@ func (m *mockJWTService) RefreshToken(token string) (string, error) {
 	return "", nil
 }
 
+func (m *mockJWTService) BlacklistToken(token string) {
+	// Mock implementation - do nothing
+}
+
 func TestGetUserByID_Success(t *testing.T) {
 	ctx := context.Background()
 	expected := &entity.User{ID: 1, Username: "alice"}

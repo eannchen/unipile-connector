@@ -33,6 +33,10 @@ func (m *jwtServiceMock) RefreshToken(tokenString string) (string, error) {
 	return "", nil
 }
 
+func (m *jwtServiceMock) BlacklistToken(tokenString string) {
+	// Mock implementation - do nothing
+}
+
 var _ service.JWTService = (*jwtServiceMock)(nil)
 
 func TestJWTMiddleware_MissingHeader(t *testing.T) {
