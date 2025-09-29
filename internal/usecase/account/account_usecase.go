@@ -11,7 +11,7 @@ import (
 
 	"unipile-connector/internal/domain/entity"
 	"unipile-connector/internal/domain/repository"
-	"unipile-connector/internal/infrastructure/client"
+	"unipile-connector/internal/domain/service"
 )
 
 // AccountUsecase handles account business logic
@@ -26,12 +26,12 @@ type AccountUsecase interface {
 type AccountUsecaseImpl struct {
 	txRepo        repository.TxRepository
 	accountRepo   repository.AccountRepository
-	unipileClient client.UnipileClient
+	unipileClient service.UnipileClient
 	logger        *logrus.Logger
 }
 
 // NewAccountUsecase creates a new account usecase
-func NewAccountUsecase(txRepo repository.TxRepository, accountRepo repository.AccountRepository, unipileClient client.UnipileClient, logger *logrus.Logger) AccountUsecase {
+func NewAccountUsecase(txRepo repository.TxRepository, accountRepo repository.AccountRepository, unipileClient service.UnipileClient, logger *logrus.Logger) AccountUsecase {
 	return &AccountUsecaseImpl{
 		txRepo:        txRepo,
 		accountRepo:   accountRepo,
@@ -51,7 +51,7 @@ func (a *AccountUsecaseImpl) DisconnectLinkedIn(ctx context.Context, userID uint
 		if err := repos.Account.DeleteByUserIDAndAccountID(ctx, userID, accountID); err != nil {
 			return fmt.Errorf("failed to delete account: %w", err)
 		}
-		if err := a.unipileClient.DeleteAccount(accountID); err != nil && err != client.ErrAccountNotFound {
+		if err := a.unipileClient.DeleteAccount(accountID); err != nil && err != service.ErrAccountNotFound {
 			return fmt.Errorf("failed to delete account on Unipile: %w", err)
 		}
 		return nil
@@ -69,7 +69,7 @@ type ConnectLinkedInRequest struct {
 // ConnectLinkedInAccount connects a LinkedIn account for a user
 func (a *AccountUsecaseImpl) ConnectLinkedInAccount(ctx context.Context, userID uint, req *ConnectLinkedInRequest) (*entity.Account, error) {
 
-	resp, err := a.unipileClient.ConnectLinkedIn(&client.ConnectLinkedInRequest{
+	resp, err := a.unipileClient.ConnectLinkedIn(&service.ConnectLinkedInRequest{
 		Provider:    "LINKEDIN",
 		Username:    req.Username,
 		Password:    req.Password,
@@ -144,12 +144,12 @@ func (a *AccountUsecaseImpl) SolveCheckpoint(ctx context.Context, userID uint, r
 			return fmt.Errorf("failed to update account: %w", err)
 		}
 
-		if _, err := a.unipileClient.SolveCheckpoint(&client.SolveCheckpointRequest{
+		if _, err := a.unipileClient.SolveCheckpoint(&service.SolveCheckpointRequest{
 			Provider:  account.Provider,
 			AccountID: req.AccountID,
 			Code:      req.Code,
 		}); err != nil {
-			if errors.Is(err, client.ErrInvalidCodeOrExpiredCheckpoint) {
+			if errors.Is(err, service.ErrInvalidCodeOrExpiredCheckpoint) {
 				return ErrInvalidCodeOrExpiredCheckpoint
 			}
 			return err
