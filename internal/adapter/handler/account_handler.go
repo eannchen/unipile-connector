@@ -54,11 +54,11 @@ func (h *AccountHandlerImpl) ListUserAccounts(c *gin.Context) {
 
 	accounts, err := h.accountUsecase.ListUserAccounts(c.Request.Context(), userID)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to retrieve accounts"})
+		RespondError(c, err)
 		return
 	}
 
-	c.JSON(http.StatusOK, gin.H{
+	RespondSuccess(c, http.StatusOK, "Accounts retrieved successfully", gin.H{
 		"accounts": accounts,
 	})
 }
@@ -78,19 +78,17 @@ func (h *AccountHandlerImpl) DisconnectLinkedIn(c *gin.Context) {
 
 	var req DisconnectLinkedInRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request data"})
+		RespondError(c, errs.WrapValidationError(err, "Invalid request data"))
 		return
 	}
 
 	err = h.accountUsecase.DisconnectLinkedIn(c.Request.Context(), userID, req.AccountID)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to disconnect account"})
+		RespondError(c, err)
 		return
 	}
 
-	c.JSON(http.StatusOK, gin.H{
-		"message": "LinkedIn account disconnected successfully",
-	})
+	RespondSuccess(c, http.StatusOK, "LinkedIn account disconnected successfully", nil)
 }
 
 // ConnectLinkedInRequest represents LinkedIn connection request
@@ -112,23 +110,23 @@ func (h *AccountHandlerImpl) ConnectLinkedIn(c *gin.Context) {
 
 	var req ConnectLinkedInRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request data"})
+		RespondError(c, errs.WrapValidationError(err, "Invalid request data"))
 		return
 	}
 
 	// Validate request based on type
 	if req.Type == "credentials" {
 		if req.Username == "" || req.Password == "" {
-			c.JSON(http.StatusBadRequest, gin.H{"error": "Username and password required for credentials type"})
+			RespondError(c, errs.WrapValidationError(errors.New("username and password required for credentials type"), "Username and password required for credentials type"))
 			return
 		}
 	} else if req.Type == "cookie" {
 		if req.AccessToken == "" {
-			c.JSON(http.StatusBadRequest, gin.H{"error": "Access token required for cookie type"})
+			RespondError(c, errs.WrapValidationError(errors.New("access token required for cookie type"), "Access token required for cookie type"))
 			return
 		}
 	} else {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Type must be 'credentials' or 'cookie'"})
+		RespondError(c, errs.WrapValidationError(errors.New("type must be 'credentials' or 'cookie"), "Type must be 'credentials' or 'cookie'"))
 		return
 	}
 
@@ -142,12 +140,13 @@ func (h *AccountHandlerImpl) ConnectLinkedIn(c *gin.Context) {
 	// Store account in database
 	entityAccount, err := h.accountUsecase.ConnectLinkedInAccount(c.Request.Context(), userID, connectReq)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to store account"})
+		RespondError(c, err)
 		return
 	}
 
-	c.JSON(http.StatusOK, entityAccount)
-	return
+	RespondSuccess(c, http.StatusOK, "LinkedIn account connected successfully", gin.H{
+		"account": entityAccount,
+	})
 }
 
 // SolveCheckpointRequest represents request to solve a checkpoint
@@ -166,7 +165,7 @@ func (h *AccountHandlerImpl) SolveCheckpoint(c *gin.Context) {
 
 	var req SolveCheckpointRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request data"})
+		RespondError(c, errs.WrapValidationError(err, "Invalid request data"))
 		return
 	}
 
@@ -184,10 +183,11 @@ func (h *AccountHandlerImpl) SolveCheckpoint(c *gin.Context) {
 			})
 			return
 		}
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to solve checkpoint"})
+		RespondError(c, err)
 		return
 	}
 
-	c.JSON(http.StatusOK, entityAccount)
-	return
+	RespondSuccess(c, http.StatusOK, "LinkedIn checkpoint solved successfully", gin.H{
+		"account": entityAccount,
+	})
 }

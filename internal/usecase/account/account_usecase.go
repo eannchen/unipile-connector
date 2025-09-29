@@ -4,12 +4,12 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
-	"fmt"
 	"time"
 
 	"github.com/sirupsen/logrus"
 
 	"unipile-connector/internal/domain/entity"
+	"unipile-connector/internal/domain/errs"
 	"unipile-connector/internal/domain/repository"
 	"unipile-connector/internal/domain/service"
 )
@@ -42,17 +42,21 @@ func NewAccountUsecase(txRepo repository.TxRepository, accountRepo repository.Ac
 
 // ListUserAccounts retrieves all accounts for a user
 func (a *AccountUsecaseImpl) ListUserAccounts(ctx context.Context, userID uint) ([]*entity.Account, error) {
-	return a.accountRepo.GetByUserID(ctx, userID)
+	accounts, err := a.accountRepo.GetByUserID(ctx, userID)
+	if err != nil {
+		return nil, errs.WrapInternalError(err, "Failed to get accounts by user ID")
+	}
+	return accounts, nil
 }
 
 // DisconnectLinkedIn disconnects LinkedIn account for a user
 func (a *AccountUsecaseImpl) DisconnectLinkedIn(ctx context.Context, userID uint, accountID string) error {
 	return a.txRepo.Do(ctx, func(repos *repository.Repositories) error {
 		if err := repos.Account.DeleteByUserIDAndAccountID(ctx, userID, accountID); err != nil {
-			return fmt.Errorf("failed to delete account: %w", err)
+			return errs.WrapInternalError(err, "Failed to delete account")
 		}
 		if err := a.unipileClient.DeleteAccount(accountID); err != nil && err != service.ErrAccountNotFound {
-			return fmt.Errorf("failed to delete account on Unipile: %w", err)
+			return errs.WrapInternalError(err, "Failed to delete account on Unipile")
 		}
 		return nil
 	})
@@ -90,14 +94,14 @@ func (a *AccountUsecaseImpl) ConnectLinkedInAccount(ctx context.Context, userID 
 	if resp.Checkpoint == nil {
 		account.CurrentStatus = "OK"
 		if err := a.accountRepo.Create(ctx, account); err != nil {
-			return nil, fmt.Errorf("failed to create account: %w", err)
+			return nil, errs.WrapInternalError(err, "Failed to create account")
 		}
 		return account, nil
 	}
 
 	checkpointBody, err := json.Marshal(resp.Checkpoint)
 	if err != nil {
-		return nil, fmt.Errorf("failed to marshal checkpoint: %w", err)
+		return nil, errs.WrapInternalError(err, "Failed to marshal checkpoint")
 	}
 
 	account.AccountStatusHistories = append(account.AccountStatusHistories, entity.AccountStatusHistory{
@@ -108,7 +112,7 @@ func (a *AccountUsecaseImpl) ConnectLinkedInAccount(ctx context.Context, userID 
 	})
 
 	if err := a.accountRepo.Create(ctx, account); err != nil {
-		return nil, fmt.Errorf("failed to create account: %w", err)
+		return nil, errs.WrapInternalError(err, "Failed to create account")
 	}
 
 	return account, err
@@ -133,7 +137,7 @@ func (a *AccountUsecaseImpl) SolveCheckpoint(ctx context.Context, userID uint, r
 
 		account, err = repos.Account.GetByUserIDAndAccountIDForUpdate(ctx, userID, req.AccountID)
 		if err != nil {
-			return fmt.Errorf("failed to get account: %w", err)
+			return errs.WrapInternalError(err, "Failed to get account")
 		}
 		if account.CurrentStatus == "OK" {
 			return nil
@@ -141,7 +145,7 @@ func (a *AccountUsecaseImpl) SolveCheckpoint(ctx context.Context, userID uint, r
 
 		account.CurrentStatus = "OK"
 		if err := repos.Account.Update(ctx, account); err != nil {
-			return fmt.Errorf("failed to update account: %w", err)
+			return errs.WrapInternalError(err, "Failed to update account")
 		}
 
 		if _, err := a.unipileClient.SolveCheckpoint(&service.SolveCheckpointRequest{
@@ -152,7 +156,7 @@ func (a *AccountUsecaseImpl) SolveCheckpoint(ctx context.Context, userID uint, r
 			if errors.Is(err, service.ErrInvalidCodeOrExpiredCheckpoint) {
 				return ErrInvalidCodeOrExpiredCheckpoint
 			}
-			return err
+			return errs.WrapInternalError(err, "Failed to solve checkpoint")
 		}
 
 		return nil
