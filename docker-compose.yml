@@ -19,34 +19,3 @@ services:
       interval: 3s
       timeout: 3s
       retries: 5
-    networks:
-      - backend
-  redis:
-    container_name: unipile_connector_redis
-    image: redis:7-alpine
-    ports:
-      - "${REDIS_PORT}:6379"
-    env_file:
-      - .env
-    environment:
-      - REDIS_REPLICATION_MODE='master'
-      - ALLOW_EMPTY_PASSWORD='yes'
-    volumes:
-      - "./volumes/redis_data:/data"
-    restart: always
-    healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
-      interval: 3s
-      timeout: 3s
-      retries: 5
-    logging:
-      driver: "json-file"
-      options:
-        max-size: "100m"
-        max-file: "10"
-    networks:
-      - backend
-
-networks:
-  backend:
-    driver: bridge
