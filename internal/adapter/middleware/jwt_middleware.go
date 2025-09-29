@@ -6,7 +6,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 
-	"unipile-connector/pkg/jwt"
+	"unipile-connector/internal/domain/service"
 )
 
 // JWTMiddleware handles JWT authentication
@@ -16,11 +16,11 @@ type JWTMiddleware interface {
 
 // JWTMiddlewareImpl handles JWT authentication
 type JWTMiddlewareImpl struct {
-	jwtService *jwt.JWTService
+	jwtService service.JWTService
 }
 
 // NewJWTMiddleware creates a new JWT middleware
-func NewJWTMiddleware(jwtService *jwt.JWTService) JWTMiddleware {
+func NewJWTMiddleware(jwtService service.JWTService) JWTMiddleware {
 	return &JWTMiddlewareImpl{
 		jwtService: jwtService,
 	}

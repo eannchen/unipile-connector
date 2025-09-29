@@ -9,7 +9,7 @@ import (
 
 	"unipile-connector/internal/domain/entity"
 	"unipile-connector/internal/domain/repository"
-	"unipile-connector/pkg/jwt"
+	"unipile-connector/internal/domain/service"
 )
 
 // UserUsecase handles user business logic
@@ -23,12 +23,12 @@ type UserUsecase interface {
 // UserUsecaseImpl handles user business logic
 type UserUsecaseImpl struct {
 	userRepo   repository.UserRepository
-	jwtService *jwt.JWTService
+	jwtService service.JWTService
 	logger     *logrus.Logger
 }
 
 // NewUserUsecase creates a new user usecase
-func NewUserUsecase(userRepo repository.UserRepository, jwtService *jwt.JWTService, logger *logrus.Logger) UserUsecase {
+func NewUserUsecase(userRepo repository.UserRepository, jwtService service.JWTService, logger *logrus.Logger) UserUsecase {
 	return &UserUsecaseImpl{
 		userRepo:   userRepo,
 		jwtService: jwtService,
