@@ -110,10 +110,46 @@ func RunMigrations(db *gorm.DB) error {
 					return err
 				}
 
+				// Create trigger function for soft deleting related records
+				if err := tx.Exec(`
+					CREATE OR REPLACE FUNCTION soft_delete_account_status_histories()
+					RETURNS TRIGGER AS $$
+					BEGIN
+						-- Soft delete related account_status_histories when account is soft deleted
+						UPDATE account_status_histories
+						SET deleted_at = NOW()
+						WHERE account_id = OLD.id
+						AND deleted_at IS NULL;
+						RETURN OLD;
+					END;
+					$$ LANGUAGE plpgsql;
+				`).Error; err != nil {
+					return err
+				}
+
+				// Create trigger on accounts table
+				if err := tx.Exec(`
+					CREATE TRIGGER trigger_soft_delete_account_status_histories
+					AFTER UPDATE OF deleted_at ON accounts
+					FOR EACH ROW
+					WHEN (OLD.deleted_at IS NULL AND NEW.deleted_at IS NOT NULL)
+					EXECUTE FUNCTION soft_delete_account_status_histories();
+				`).Error; err != nil {
+					return err
+				}
+
 				return nil
 			},
 			Rollback: func(tx *gorm.DB) error {
-				return tx.Exec(`DROP TABLE IF EXISTS accounts, users CASCADE;`).Error
+				// Drop trigger and function first
+				if err := tx.Exec(`DROP TRIGGER IF EXISTS trigger_soft_delete_account_status_histories ON accounts;`).Error; err != nil {
+					return err
+				}
+				if err := tx.Exec(`DROP FUNCTION IF EXISTS soft_delete_account_status_histories();`).Error; err != nil {
+					return err
+				}
+				// Drop tables
+				return tx.Exec(`DROP TABLE IF EXISTS account_status_histories, accounts, users CASCADE;`).Error
 			},
 		},
 	})
