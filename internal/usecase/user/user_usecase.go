@@ -3,21 +3,25 @@ package user
 import (
 	"context"
 	"errors"
+
+	"github.com/sirupsen/logrus"
+	"golang.org/x/crypto/bcrypt"
+
 	"unipile-connector/internal/domain/entity"
 	"unipile-connector/internal/domain/repository"
-
-	"golang.org/x/crypto/bcrypt"
 )
 
 // UserUsecase handles user business logic
 type UserUsecase struct {
 	userRepo repository.UserRepository
+	logger   *logrus.Logger
 }
 
 // NewUserUsecase creates a new user usecase
-func NewUserUsecase(userRepo repository.UserRepository) *UserUsecase {
+func NewUserUsecase(userRepo repository.UserRepository, logger *logrus.Logger) *UserUsecase {
 	return &UserUsecase{
 		userRepo: userRepo,
+		logger:   logger,
 	}
 }
 

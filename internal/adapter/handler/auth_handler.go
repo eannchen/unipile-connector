@@ -4,7 +4,6 @@ import (
 	"net/http"
 
 	"github.com/gin-gonic/gin"
-	"github.com/sirupsen/logrus"
 
 	"unipile-connector/internal/usecase/user"
 	"unipile-connector/pkg/jwt"
@@ -14,15 +13,13 @@ import (
 type AuthHandler struct {
 	userUsecase *user.UserUsecase
 	jwtService  *jwt.JWTService
-	logger      *logrus.Logger
 }
 
 // NewAuthHandler creates a new auth handler
-func NewAuthHandler(userUsecase *user.UserUsecase, jwtService *jwt.JWTService, logger *logrus.Logger) *AuthHandler {
+func NewAuthHandler(userUsecase *user.UserUsecase, jwtService *jwt.JWTService) *AuthHandler {
 	return &AuthHandler{
 		userUsecase: userUsecase,
 		jwtService:  jwtService,
-		logger:      logger,
 	}
 }
 
@@ -42,14 +39,12 @@ type LoginRequest struct {
 func (h *AuthHandler) Register(c *gin.Context) {
 	var req RegisterRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		h.logger.WithError(err).Error("Invalid registration request")
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request data"})
 		return
 	}
 
 	user, err := h.userUsecase.CreateUser(c.Request.Context(), req.Username, req.Password)
 	if err != nil {
-		h.logger.WithError(err).Error("Failed to create user")
 		c.JSON(http.StatusConflict, gin.H{"error": err.Error()})
 		return
 	}
@@ -68,14 +63,12 @@ func (h *AuthHandler) Register(c *gin.Context) {
 func (h *AuthHandler) Login(c *gin.Context) {
 	var req LoginRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		h.logger.WithError(err).Error("Invalid login request")
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request data"})
 		return
 	}
 
 	user, err := h.userUsecase.AuthenticateUser(c.Request.Context(), req.Username, req.Password)
 	if err != nil {
-		h.logger.WithError(err).Error("Authentication failed")
 		c.JSON(http.StatusUnauthorized, gin.H{"error": "Invalid credentials"})
 		return
 	}
@@ -83,7 +76,6 @@ func (h *AuthHandler) Login(c *gin.Context) {
 	// Generate JWT token
 	token, err := h.jwtService.GenerateToken(user.ID, user.Username)
 	if err != nil {
-		h.logger.WithError(err).Error("Failed to generate token")
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to generate token"})
 		return
 	}
@@ -128,7 +120,6 @@ func (h *AuthHandler) RefreshToken(c *gin.Context) {
 	// Refresh token
 	newToken, err := h.jwtService.RefreshToken(tokenString)
 	if err != nil {
-		h.logger.WithError(err).Error("Failed to refresh token")
 		c.JSON(http.StatusUnauthorized, gin.H{"error": "Invalid or expired token"})
 		return
 	}
@@ -155,7 +146,6 @@ func (h *AuthHandler) GetCurrentUser(c *gin.Context) {
 
 	user, err := h.userUsecase.GetUserByID(c.Request.Context(), userID)
 	if err != nil {
-		h.logger.WithError(err).Error("Failed to get user")
 		c.JSON(http.StatusNotFound, gin.H{"error": "User not found"})
 		return
 	}
