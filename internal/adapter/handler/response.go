@@ -21,6 +21,7 @@ func RespondSuccess(c *gin.Context, status int, message string, payload gin.H) {
 // RespondError responds with the appropriate error code and message
 func RespondError(c *gin.Context, err error) {
 	if err == nil {
+		c.Abort()
 		return
 	}
 
@@ -42,6 +43,7 @@ func RespondError(c *gin.Context, err error) {
 // RespondUnauthorized responds with the appropriate unauthorized code and message
 func RespondUnauthorized(c *gin.Context, err error) {
 	if err == nil {
+		c.Abort()
 		return
 	}
 	var codedErr *errs.CodedError
