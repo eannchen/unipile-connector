@@ -16,7 +16,14 @@ const (
 type CodedError struct {
 	Kind    Kind   `json:"kind"` // Identifier
 	Message string `json:"message"`
-	Err     error  `json:"error"` // original error
+	Detail  string `json:"detail"` // expose stringified error
+	Err     error  `json:"-"`      // original error
+}
+
+func (e *CodedError) setDetail() {
+	if e.Err != nil {
+		e.Detail = e.Err.Error()
+	}
 }
 
 func (e *CodedError) Error() string {
@@ -39,27 +46,33 @@ func (e *CodedError) Unwrap() error {
 
 // WrapValidationError wraps an error with a validation error
 func WrapValidationError(err error, msg string) error {
-	return &CodedError{
+	ce := &CodedError{
 		Err:     err,
 		Kind:    ValidationErrorKind,
 		Message: msg,
 	}
+	ce.setDetail()
+	return ce
 }
 
 // WrapBusinessError wraps an error with a business error
 func WrapBusinessError(err error, msg string) error {
-	return &CodedError{
+	ce := &CodedError{
 		Err:     err,
 		Kind:    BusinessErrorKind,
 		Message: msg,
 	}
+	ce.setDetail()
+	return ce
 }
 
 // WrapInternalError wraps an error with a system error
 func WrapInternalError(err error, msg string) error {
-	return &CodedError{
+	ce := &CodedError{
 		Err:     err,
 		Kind:    SystemErrorKind,
 		Message: msg,
 	}
+	ce.setDetail()
+	return ce
 }
