@@ -1,4 +1,3 @@
-version: "3.8"
 services:
   postgres:
     container_name: unipile_connector_postgres
