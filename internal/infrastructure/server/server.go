@@ -68,7 +68,6 @@ func (s *Impl) setupRoutes() {
 		// Public routes (Auth routes)
 		api.POST("/auth/register", s.handlers.AuthHandler.Register)
 		api.POST("/auth/login", s.handlers.AuthHandler.Login)
-		api.POST("/auth/logout", s.handlers.AuthHandler.Logout)
 		api.POST("/auth/refresh", s.handlers.AuthHandler.RefreshToken)
 
 		// Protected routes
@@ -77,6 +76,7 @@ func (s *Impl) setupRoutes() {
 		{
 			// Auth routes
 			protected.GET("/auth/me", s.handlers.AuthHandler.GetCurrentUser)
+			protected.POST("/auth/logout", s.handlers.AuthHandler.Logout)
 			// Account routes
 			protected.GET("/accounts", s.handlers.AccountHandler.ListUserAccounts)
 			protected.POST("/accounts/linkedin/connect", s.handlers.AccountHandler.ConnectLinkedIn)
