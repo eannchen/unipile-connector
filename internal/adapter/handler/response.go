@@ -9,6 +9,15 @@ import (
 	"unipile-connector/internal/domain/errs"
 )
 
+// RespondSuccess responds with the appropriate success code and message
+func RespondSuccess(c *gin.Context, status int, message string, payload gin.H) {
+	body := gin.H{"message": message}
+	for k, v := range payload {
+		body[k] = v
+	}
+	c.JSON(status, body)
+}
+
 // RespondError responds with the appropriate error code and message
 func RespondError(c *gin.Context, err error) {
 	if err == nil {
