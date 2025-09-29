@@ -48,15 +48,6 @@ func (u *UsecaseImpl) GetUserByID(ctx context.Context, id uint) (*entity.User, e
 
 // CreateUser creates a new user
 func (u *UsecaseImpl) CreateUser(ctx context.Context, username, password string) (*entity.User, error) {
-	// Check if user already exists
-	existingUser, err := u.userRepo.GetByUsername(ctx, username)
-	if err != nil {
-		return nil, errs.WrapInternalError(err, "Failed to get user by username")
-	}
-	if existingUser != nil {
-		return nil, errs.WrapValidationError(errors.New("username already exists"), "Username already exists")
-	}
-
 	// Hash password
 	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
 	if err != nil {
@@ -69,6 +60,9 @@ func (u *UsecaseImpl) CreateUser(ctx context.Context, username, password string)
 	}
 
 	if err := u.userRepo.Create(ctx, user); err != nil {
+		if errors.Is(err, repository.ErrDuplicateKey) {
+			return nil, errs.WrapValidationError(errors.New("username already exists"), "Username already exists")
+		}
 		return nil, errs.WrapInternalError(err, "Failed to create user")
 	}
 
