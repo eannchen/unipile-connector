@@ -20,11 +20,11 @@ type AccountHandler interface {
 
 // AccountHandlerImpl handles account-related requests
 type AccountHandlerImpl struct {
-	accountUsecase account.AccountUsecase
+	accountUsecase account.Usecase
 }
 
 // NewAccountHandler creates a new account handler
-func NewAccountHandler(accountUsecase account.AccountUsecase) AccountHandler {
+func NewAccountHandler(accountUsecase account.Usecase) AccountHandler {
 	return &AccountHandlerImpl{
 		accountUsecase: accountUsecase,
 	}

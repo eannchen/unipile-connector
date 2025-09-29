@@ -21,11 +21,11 @@ type AuthHandler interface {
 
 // AuthHandlerImpl handles authentication requests
 type AuthHandlerImpl struct {
-	userUsecase user.UserUsecase
+	userUsecase user.Usecase
 }
 
 // NewAuthHandler creates a new auth handler
-func NewAuthHandler(userUsecase user.UserUsecase) AuthHandler {
+func NewAuthHandler(userUsecase user.Usecase) AuthHandler {
 	return &AuthHandlerImpl{
 		userUsecase: userUsecase,
 	}
