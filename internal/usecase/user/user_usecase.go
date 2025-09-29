@@ -52,7 +52,7 @@ func (u *UsecaseImpl) GetUserByID(ctx context.Context, id uint) (*entity.User, e
 // CreateUser creates a new user
 func (u *UsecaseImpl) CreateUser(ctx context.Context, username, password string) (*entity.User, error) {
 	// Hash password
-	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
+	hashedPassword, err := bcryptGenerateFromPassword([]byte(password), bcrypt.DefaultCost)
 	if err != nil {
 		return nil, errs.WrapInternalError(err, "Failed to hash password")
 	}
@@ -104,3 +104,5 @@ func (u *UsecaseImpl) RefreshToken(ctx context.Context, token string) (string, e
 	}
 	return newToken, nil
 }
+
+var bcryptGenerateFromPassword = bcrypt.GenerateFromPassword
