@@ -37,7 +37,7 @@ func main() {
 	// TestLinkedInConnectionWithCredentials(unipileClient, "your_linkedin_email@example.com", "your_linkedin_password")
 	// TestLinkedInConnectionWithCookie(unipileClient, "your_li_at_cookie_here", "your_user_agent_here")
 	// TestCheckpointSolving(unipileClient, "your_account_id", "your_code")
-	// TestAccountStatusCheck(unipileClient, nil)
+	// TestAccountStatusCheck(unipileClient, "your_account_id")
 
 	fmt.Println("\n🎉 Unipile client test completed!")
 }
@@ -194,21 +194,19 @@ func TestCheckpointSolving(unipileClient *client.UnipileClient, accountID, code 
 }
 
 // TestAccountStatusCheck tests the account status check functionality
-func TestAccountStatusCheck(unipileClient *client.UnipileClient, resp *client.ConnectLinkedInResponse) {
+func TestAccountStatusCheck(unipileClient *client.UnipileClient, accountID string) {
 	fmt.Println("\nTesting account status check...")
-	if resp != nil && resp.AccountID != "" {
-		fmt.Printf("   Checking status for account ID: %s\n", resp.AccountID)
-
-		statusResp, err := unipileClient.GetAccountStatus(resp.AccountID)
-		if err != nil {
-			fmt.Printf("❌ Account status check failed: %v\n", err)
-		} else {
-			fmt.Printf("✅ Account status response received!\n")
-			fmt.Printf("   Object: %s\n", statusResp.Object)
-			fmt.Printf("   Account ID: %s\n", statusResp.AccountID)
-			fmt.Printf("   Status: %s\n", statusResp.Status)
-		}
+	account, err := unipileClient.GetAccount(accountID)
+	if err != nil {
+		fmt.Printf("❌ Account status check failed: %v\n", err)
 	} else {
-		fmt.Println("   Skipping status check - no account ID available")
+		fmt.Printf("✅ Account status response received!\n")
+		fmt.Printf("   Object: %s\n", account.Object)
+		fmt.Printf("   Account ID: %s\n", account.ID)
+		if len(account.Sources) > 0 {
+			fmt.Printf("   Status: %s\n", account.Sources[0].Status)
+		} else {
+			fmt.Printf("   Status: %s\n", "No sources found")
+		}
 	}
 }

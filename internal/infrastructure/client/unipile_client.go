@@ -28,13 +28,6 @@ func NewUnipileClient(baseURL, apiKey string) *UnipileClient {
 	}
 }
 
-// AccountStatusResponse represents account status response
-type AccountStatusResponse struct {
-	Object    string `json:"object"`
-	AccountID string `json:"account_id"`
-	Status    string `json:"status"` // "OK", "CHECKPOINT", "ERROR"
-}
-
 // AccountListResponse represents the response from listing accounts
 type AccountListResponse struct {
 	Object string    `json:"object"`
@@ -102,6 +95,41 @@ func (c *UnipileClient) TestConnection() error {
 		return fmt.Errorf("unipile API health check failed: %w", err)
 	}
 	return nil
+}
+
+// GetAccount gets the status of a LinkedIn account
+func (c *UnipileClient) GetAccount(accountID string) (*Account, error) {
+	url := fmt.Sprintf("%s/api/v1/accounts/%s", c.baseURL, accountID)
+
+	httpReq, err := http.NewRequest("GET", url, nil)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create request: %w", err)
+	}
+
+	httpReq.Header.Set("X-API-KEY", c.apiKey)
+	httpReq.Header.Set("accept", "application/json")
+
+	resp, err := c.httpClient.Do(httpReq)
+	if err != nil {
+		return nil, fmt.Errorf("failed to make request: %w", err)
+	}
+	defer resp.Body.Close()
+
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read response: %w", err)
+	}
+
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("unipile API error (status %d): %s", resp.StatusCode, string(body))
+	}
+
+	var response Account
+	if err := json.Unmarshal(body, &response); err != nil {
+		return nil, fmt.Errorf("failed to unmarshal response: %w", err)
+	}
+
+	return &response, nil
 }
 
 // ErrAccountNotFound is returned when an account is not found
@@ -276,39 +304,4 @@ func (c *UnipileClient) SolveCheckpoint(req *SolveCheckpointRequest) (*SolveChec
 		}
 		return nil, fmt.Errorf("unipile API error (status %d): %s", resp.StatusCode, string(body))
 	}
-}
-
-// GetAccountStatus gets the status of a LinkedIn account
-func (c *UnipileClient) GetAccountStatus(accountID string) (*AccountStatusResponse, error) {
-	url := fmt.Sprintf("%s/api/v1/accounts/%s", c.baseURL, accountID)
-
-	httpReq, err := http.NewRequest("GET", url, nil)
-	if err != nil {
-		return nil, fmt.Errorf("failed to create request: %w", err)
-	}
-
-	httpReq.Header.Set("X-API-KEY", c.apiKey)
-	httpReq.Header.Set("accept", "application/json")
-
-	resp, err := c.httpClient.Do(httpReq)
-	if err != nil {
-		return nil, fmt.Errorf("failed to make request: %w", err)
-	}
-	defer resp.Body.Close()
-
-	body, err := io.ReadAll(resp.Body)
-	if err != nil {
-		return nil, fmt.Errorf("failed to read response: %w", err)
-	}
-
-	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("unipile API error (status %d): %s", resp.StatusCode, string(body))
-	}
-
-	var response AccountStatusResponse
-	if err := json.Unmarshal(body, &response); err != nil {
-		return nil, fmt.Errorf("failed to unmarshal response: %w", err)
-	}
-
-	return &response, nil
 }
