@@ -1,6 +1,6 @@
 # Makefile for Unipile Connector
 
-.PHONY: help build run test clean docker-build docker-run migrate dev
+.PHONY: help build run test clean docker-up docker-down fmt
 
 # Default target
 help:
@@ -9,10 +9,9 @@ help:
 	@echo "  run          - Run the application"
 	@echo "  test         - Run tests"
 	@echo "  clean        - Clean build artifacts"
-	@echo "  docker-build - Build Docker image"
-	@echo "  docker-run   - Run with Docker Compose"
-	@echo "  migrate      - Run database migrations"
-	@echo "  dev          - Run in development mode"
+	@echo "  docker-up    - Run with Docker Compose for development"
+	@echo "  docker-down  - Stop with Docker Compose for development"
+	@echo "  fmt          - Format code"
 
 # Build the application
 build:
@@ -30,43 +29,14 @@ test:
 clean:
 	rm -rf bin/
 
-# Build Docker image
-docker-build:
-	docker build -t unipile-connector .
-
-# Run with Docker Compose
+# Run with Docker Compose for development
 docker-up:
 	docker compose -f ./docker-compose.yml up -d --build
 
-# Stop docker compose
+# Stop docker compose for development
 docker-down:
 	docker compose -f ./docker-compose.yml down
-
-# Run database migrations
-migrate:
-	go run ./cmd/api migrate
-
-# Development mode with hot reload
-dev:
-	@echo "Starting development server..."
-	@echo "Make sure PostgreSQL and Redis are running"
-	go run ./cmd/api
-
-# Install dependencies
-deps:
-	go mod download
-	go mod tidy
 
 # Format code
 fmt:
 	go fmt ./...
-
-# Lint code
-lint:
-	golangci-lint run
-
-# Generate mocks (if using mockgen)
-mocks:
-	mockgen -source=internal/domain/repository/user_repository.go -destination=internal/mocks/user_repository_mock.go
-	mockgen -source=internal/domain/repository/account_repository.go -destination=internal/mocks/account_repository_mock.go
-
