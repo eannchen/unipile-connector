@@ -13,6 +13,7 @@ import (
 
 	"unipile-connector/internal/adapter/handler"
 	"unipile-connector/internal/adapter/middleware"
+	"unipile-connector/internal/adapter/repository/postgres"
 	"unipile-connector/internal/domain/service"
 	"unipile-connector/internal/infrastructure/client"
 	"unipile-connector/internal/infrastructure/config"
@@ -75,7 +76,7 @@ func main() {
 	middlewares := middleware.NewMiddlewares(corsMiddleware, jwtMiddleware)
 
 	// Initialize repositories
-	repos := database.GetRepositories(db)
+	repos := postgres.GetRepositories(db)
 
 	// Initialize use cases
 	userUsecase := user.NewUserUsecase(repos.User, jwtService, log)

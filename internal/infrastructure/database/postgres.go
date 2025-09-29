@@ -1,7 +1,6 @@
 package database
 
 import (
-	"context"
 	"fmt"
 	"log"
 
@@ -9,9 +8,6 @@ import (
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
 	"gorm.io/gorm/logger"
-
-	postgresRepo "unipile-connector/internal/adapter/repository/postgres"
-	"unipile-connector/internal/domain/repository"
 )
 
 // Config holds database configuration
@@ -156,35 +152,4 @@ func RunMigrations(db *gorm.DB) error {
 
 	log.Println("Database migrations completed successfully")
 	return nil
-}
-
-// GetRepositories returns initialized repositories
-func GetRepositories(db *gorm.DB) repository.Repositories {
-	userRepo := postgresRepo.NewUserRepository(db)
-	accountRepo := postgresRepo.NewAccountRepository(db)
-	txRepo := NewTxRepository(db, &repository.Repositories{
-		User:    userRepo,
-		Account: accountRepo,
-	})
-	return repository.Repositories{
-		Tx:      txRepo,
-		User:    userRepo,
-		Account: accountRepo,
-	}
-}
-
-type txRepository struct {
-	db    *gorm.DB
-	repos *repository.Repositories
-}
-
-// NewTxRepository creates a new transaction repository
-func NewTxRepository(db *gorm.DB, repos *repository.Repositories) repository.TxRepository {
-	return &txRepository{db: db, repos: repos}
-}
-
-func (r *txRepository) Do(ctx context.Context, fn func(repos *repository.Repositories) error) error {
-	return r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
-		return fn(r.repos)
-	})
 }
