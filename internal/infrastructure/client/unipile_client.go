@@ -135,7 +135,7 @@ func (c *UnipileClientImpl) DeleteAccount(accountID string) error {
 	case http.StatusOK:
 		return nil
 	case http.StatusNotFound:
-		return service.ErrAccountNotFound
+		return service.ErrUnipileAccountNotFound
 	default:
 		return fmt.Errorf("unipile API error (status %d): %s", resp.StatusCode, string(body))
 	}
@@ -225,10 +225,10 @@ func (c *UnipileClientImpl) SolveCheckpoint(req *service.SolveCheckpointRequest)
 	case http.StatusOK, http.StatusCreated:
 		return &response, nil
 	case http.StatusUnauthorized:
-		return nil, service.ErrInvalidCodeOrExpiredCheckpoint
+		return nil, service.ErrUnipileInvalidCodeOrExpiredCheckpoint
 	default:
 		if response.Type == "errors/authentication_intent_error" {
-			return nil, service.ErrInvalidCodeOrExpiredCheckpoint
+			return nil, service.ErrUnipileInvalidCodeOrExpiredCheckpoint
 		}
 		return nil, fmt.Errorf("unipile API error (status %d): %s", resp.StatusCode, string(body))
 	}

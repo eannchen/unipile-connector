@@ -55,7 +55,7 @@ func (a *AccountUsecaseImpl) DisconnectLinkedIn(ctx context.Context, userID uint
 		if err := repos.Account.DeleteByUserIDAndAccountID(ctx, userID, accountID); err != nil {
 			return errs.WrapInternalError(err, "Failed to delete account")
 		}
-		if err := a.unipileClient.DeleteAccount(accountID); err != nil && err != service.ErrAccountNotFound {
+		if err := a.unipileClient.DeleteAccount(accountID); err != nil && err != service.ErrUnipileAccountNotFound {
 			return errs.WrapInternalError(err, "Failed to delete account on Unipile")
 		}
 		return nil
@@ -150,7 +150,7 @@ func (a *AccountUsecaseImpl) SolveCheckpoint(ctx context.Context, userID uint, r
 			AccountID: req.AccountID,
 			Code:      req.Code,
 		}); err != nil {
-			if errors.Is(err, service.ErrInvalidCodeOrExpiredCheckpoint) {
+			if errors.Is(err, service.ErrUnipileInvalidCodeOrExpiredCheckpoint) {
 				return errs.ErrInvalidCodeOrExpiredCheckpoint
 			}
 			return errs.WrapInternalError(err, "Failed to solve checkpoint")

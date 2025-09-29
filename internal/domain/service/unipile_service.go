@@ -79,8 +79,8 @@ type SolveCheckpointResponse struct {
 	Detail string `json:"detail"`
 }
 
-// ErrInvalidCodeOrExpiredCheckpoint is returned when the code is invalid or the checkpoint expired
-var ErrInvalidCodeOrExpiredCheckpoint = errors.New("invalid code or expired checkpoint")
+// ErrUnipileInvalidCodeOrExpiredCheckpoint is returned when the code is invalid or the checkpoint expired
+var ErrUnipileInvalidCodeOrExpiredCheckpoint = errors.New("invalid code or expired checkpoint")
 
-// ErrAccountNotFound is returned when an account is not found
-var ErrAccountNotFound = errors.New("account not found")
+// ErrUnipileAccountNotFound is returned when an account is not found
+var ErrUnipileAccountNotFound = errors.New("account not found")
