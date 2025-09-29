@@ -2,7 +2,9 @@ package account
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
+	"fmt"
 	"time"
 
 	"github.com/sirupsen/logrus"
@@ -60,74 +62,52 @@ type ConnectLinkedInRequest struct {
 	UserAgent   string
 }
 
-// ConnectLinkedInResponse represents response from Unipile connection
-type ConnectLinkedInResponse struct {
-	Success     bool
-	Account     *entity.Account
-	Checkpoint  *client.Checkpoint
-	ExpiresAt   time.Time
-	RowResponse string
-}
-
 // ConnectLinkedInAccount connects a LinkedIn account for a user
-func (a *AccountUsecase) ConnectLinkedInAccount(ctx context.Context, userID uint, req *ConnectLinkedInRequest) (*ConnectLinkedInResponse, error) {
+func (a *AccountUsecase) ConnectLinkedInAccount(ctx context.Context, userID uint, req *ConnectLinkedInRequest) (*entity.Account, error) {
 
-	var connResp *ConnectLinkedInResponse
+	resp, err := a.unipileClient.ConnectLinkedIn(&client.ConnectLinkedInRequest{
+		Provider:    "LINKEDIN",
+		Username:    req.Username,
+		Password:    req.Password,
+		AccessToken: req.AccessToken,
+		UserAgent:   req.UserAgent,
+	})
+	if err != nil {
+		return nil, err
+	}
 
-	err := a.txRepo.Do(ctx, func(repos *repository.Repositories) error {
-		account, err := repos.Account.GetByUserIDAndProviderForUpdate(ctx, userID, "LINKEDIN")
-		if err != nil && !errors.Is(err, repository.ErrAccountNotFound) {
-			return err
+	account := &entity.Account{
+		UserID:        userID,
+		Provider:      "LINKEDIN",
+		AccountID:     resp.AccountID,
+		CurrentStatus: "PENDING",
+	}
+
+	if resp.Checkpoint == nil {
+		account.CurrentStatus = "OK"
+		if err := a.accountRepo.Create(ctx, account); err != nil {
+			return nil, fmt.Errorf("failed to create account: %w", err)
 		}
-		if account != nil { // Account already exists and connected
-			connResp = &ConnectLinkedInResponse{
-				Success: true,
-				Account: account,
-			}
-			return nil
-		}
+		return account, nil
+	}
 
-		resp, err := a.unipileClient.ConnectLinkedIn(&client.ConnectLinkedInRequest{
-			Provider:    "LINKEDIN",
-			Username:    req.Username,
-			Password:    req.Password,
-			AccessToken: req.AccessToken,
-			UserAgent:   req.UserAgent,
-		})
-		if err != nil {
-			return err
-		}
+	checkpointBody, err := json.Marshal(resp.Checkpoint)
+	if err != nil {
+		return nil, fmt.Errorf("failed to marshal checkpoint: %w", err)
+	}
 
-		account = &entity.Account{
-			UserID:    userID,
-			Provider:  "LINKEDIN",
-			AccountID: resp.AccountID,
-		}
-
-		if resp.Checkpoint == nil {
-			if err := a.accountRepo.Create(ctx, account); err != nil {
-				a.logger.Errorf("Failed to create account: %v with accountID created on Unipile: %s", err, account.AccountID)
-				return err
-			}
-			connResp = &ConnectLinkedInResponse{
-				Success: true,
-				Account: account,
-			}
-			return nil
-		}
-
-		connResp = &ConnectLinkedInResponse{
-			Success:     false,
-			Account:     account,
-			Checkpoint:  resp.Checkpoint,
-			ExpiresAt:   time.Now().Add(4 * time.Minute),
-			RowResponse: resp.RowBody,
-		}
-
-		return nil
+	account.AccountStatusHistories = append(account.AccountStatusHistories, entity.AccountStatusHistory{
+		Checkpoint:          resp.Checkpoint.Type,
+		CheckpointMetadata:  checkpointBody,
+		CheckpointExpiresAt: time.Now().Add(270 * time.Second), // 4.5 minutes
+		Status:              "PENDING",
 	})
 
-	return connResp, err
+	if err := a.accountRepo.Create(ctx, account); err != nil {
+		return nil, fmt.Errorf("failed to create account: %w", err)
+	}
+
+	return account, err
 }
 
 // SolveCheckpointRequest represents request to solve a checkpoint

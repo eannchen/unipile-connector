@@ -222,20 +222,37 @@ async function connectLinkedIn() {
 
         const data = await response.json();
 
-        if (response.status === 201) {
-            // Checkpoint required
-            currentAccountID = data.account_id;
-            showCheckpointSection(data.checkpoint, data.expires_at);
-            showAlert('Checkpoint required: ' + data.checkpoint.type, 'info');
-        } else if (response.ok) {
-            showAlert('LinkedIn account connected successfully!', 'success');
-            // Clear form
-            document.getElementById('linkedinUsername').value = '';
-            document.getElementById('linkedinPassword').value = '';
-            document.getElementById('linkedinAccessToken').value = '';
-            document.getElementById('userAgent').value = '';
-            // Reload accounts
-            loadUserAccounts();
+        if (response.ok) {
+            // Check if account status is not "OK" - meaning checkpoint is required
+            if (data.current_status && data.current_status !== "OK") {
+                // Checkpoint required
+                currentAccountID = data.account_id;
+
+                // Check if there's checkpoint information in account status histories
+                if (data.account_status_histories && data.account_status_histories.length > 0) {
+                    const latestHistory = data.account_status_histories[data.account_status_histories.length - 1];
+                    showCheckpointSection({
+                        type: latestHistory.checkpoint
+                    }, latestHistory.checkpoint_expires_at);
+                    showAlert('Checkpoint required: ' + latestHistory.checkpoint, 'info');
+                } else {
+                    // Generic checkpoint message if no specific checkpoint info
+                    showCheckpointSection({
+                        type: 'UNKNOWN'
+                    }, null);
+                    showAlert('Additional verification required', 'info');
+                }
+            } else {
+                // Account connected successfully
+                showAlert('LinkedIn account connected successfully!', 'success');
+                // Clear form
+                document.getElementById('linkedinUsername').value = '';
+                document.getElementById('linkedinPassword').value = '';
+                document.getElementById('linkedinAccessToken').value = '';
+                document.getElementById('userAgent').value = '';
+                // Reload accounts
+                loadUserAccounts();
+            }
         } else {
             showAlert(data.error || 'Failed to connect LinkedIn account', 'danger');
         }

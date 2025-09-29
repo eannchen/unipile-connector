@@ -124,35 +124,14 @@ func (h *AccountHandler) ConnectLinkedIn(c *gin.Context) {
 	}
 
 	// Store account in database
-	resp, err := h.accountUsecase.ConnectLinkedInAccount(c.Request.Context(), userID, connectReq)
+	entityAccount, err := h.accountUsecase.ConnectLinkedInAccount(c.Request.Context(), userID, connectReq)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to store account"})
 		return
 	}
 
-	if resp.Success {
-		c.JSON(http.StatusOK, gin.H{
-			"message":    "LinkedIn account connected successfully",
-			"account_id": resp.Account.AccountID,
-			"account": gin.H{
-				"id":         resp.Account.ID,
-				"provider":   resp.Account.Provider,
-				"account_id": resp.Account.AccountID,
-				"created_at": resp.Account.CreatedAt,
-			},
-		})
-		return
-	}
-
-	c.JSON(http.StatusCreated, gin.H{
-		"message":    "Checkpoint required",
-		"account_id": resp.Account.AccountID,
-		"checkpoint": gin.H{
-			"type": resp.Checkpoint.Type, // "2FA", "OTP", "IN_APP_VALIDATION", "CAPTCHA", "PHONE_REGISTER"
-		},
-		"expires_at":   resp.ExpiresAt,
-		"row_response": resp.RowResponse,
-	})
+	c.JSON(http.StatusOK, entityAccount)
+	return
 }
 
 // SolveCheckpointRequest represents request to solve a checkpoint
