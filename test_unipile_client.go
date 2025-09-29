@@ -43,7 +43,7 @@ func main() {
 }
 
 // TestConnection tests the connection to Unipile API by calling ListAccounts
-func TestConnection(unipileClient *client.UnipileClient) {
+func TestConnection(unipileClient client.UnipileClient) {
 	fmt.Println("\nTesting connection...")
 	if err := unipileClient.TestConnection(); err != nil {
 		fmt.Printf("❌ Connection test failed: %v\n", err)
@@ -54,7 +54,7 @@ func TestConnection(unipileClient *client.UnipileClient) {
 }
 
 // TestListAccounts tests the list accounts functionality
-func TestListAccounts(unipileClient *client.UnipileClient) {
+func TestListAccounts(unipileClient client.UnipileClient) {
 	fmt.Println("\nTesting list accounts...")
 	accountsResp, err := unipileClient.ListAccounts()
 	if err != nil {
@@ -86,7 +86,7 @@ func TestListAccounts(unipileClient *client.UnipileClient) {
 }
 
 // TestDeleteAccount tests the delete account functionality
-func TestDeleteAccount(unipileClient *client.UnipileClient) {
+func TestDeleteAccount(unipileClient client.UnipileClient) {
 	fmt.Println("\nTesting delete account...")
 	fmt.Println("   Note: This will test with a non-existent account ID")
 	fmt.Println("   Expected result: Account not found error")
@@ -106,7 +106,7 @@ func TestDeleteAccount(unipileClient *client.UnipileClient) {
 }
 
 // TestLinkedInConnectionWithCredentials tests the LinkedIn connection with credentials
-func TestLinkedInConnectionWithCredentials(unipileClient *client.UnipileClient, username, password string) {
+func TestLinkedInConnectionWithCredentials(unipileClient client.UnipileClient, username, password string) {
 	fmt.Println("\nTesting LinkedIn connection with credentials...")
 	fmt.Println("   Note: This will only work with valid LinkedIn credentials")
 	fmt.Println("   You can modify the credentials below for testing")
@@ -140,7 +140,7 @@ func TestLinkedInConnectionWithCredentials(unipileClient *client.UnipileClient, 
 }
 
 // TestLinkedInConnectionWithCookie tests the LinkedIn connection with cookie
-func TestLinkedInConnectionWithCookie(unipileClient *client.UnipileClient, accessToken, userAgent string) {
+func TestLinkedInConnectionWithCookie(unipileClient client.UnipileClient, accessToken, userAgent string) {
 	fmt.Println("\nTesting LinkedIn connection with cookie...")
 	fmt.Println("   Note: This will only work with a valid li_at cookie")
 	fmt.Println("   You can modify the cookie below for testing")
@@ -173,7 +173,7 @@ func TestLinkedInConnectionWithCookie(unipileClient *client.UnipileClient, acces
 }
 
 // TestCheckpointSolving tests the checkpoint solving functionality
-func TestCheckpointSolving(unipileClient *client.UnipileClient, accountID, code string) {
+func TestCheckpointSolving(unipileClient client.UnipileClient, accountID, code string) {
 	fmt.Println("\nTesting checkpoint solving...")
 
 	checkpointReq := &client.SolveCheckpointRequest{
@@ -194,7 +194,7 @@ func TestCheckpointSolving(unipileClient *client.UnipileClient, accountID, code 
 }
 
 // TestAccountStatusCheck tests the account status check functionality
-func TestAccountStatusCheck(unipileClient *client.UnipileClient, accountID string) {
+func TestAccountStatusCheck(unipileClient client.UnipileClient, accountID string) {
 	fmt.Println("\nTesting account status check...")
 	account, err := unipileClient.GetAccount(accountID)
 	if err != nil {

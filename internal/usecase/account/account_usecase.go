@@ -15,16 +15,24 @@ import (
 )
 
 // AccountUsecase handles account business logic
-type AccountUsecase struct {
+type AccountUsecase interface {
+	ListUserAccounts(ctx context.Context, userID uint) ([]*entity.Account, error)
+	DisconnectLinkedIn(ctx context.Context, userID uint, accountID string) error
+	ConnectLinkedInAccount(ctx context.Context, userID uint, req *ConnectLinkedInRequest) (*entity.Account, error)
+	SolveCheckpoint(ctx context.Context, userID uint, req *SolveCheckpointRequest) (*entity.Account, error)
+}
+
+// AccountUsecaseImpl handles account business logic
+type AccountUsecaseImpl struct {
 	txRepo        repository.TxRepository
 	accountRepo   repository.AccountRepository
-	unipileClient *client.UnipileClient
+	unipileClient client.UnipileClient
 	logger        *logrus.Logger
 }
 
 // NewAccountUsecase creates a new account usecase
-func NewAccountUsecase(txRepo repository.TxRepository, accountRepo repository.AccountRepository, unipileClient *client.UnipileClient, logger *logrus.Logger) *AccountUsecase {
-	return &AccountUsecase{
+func NewAccountUsecase(txRepo repository.TxRepository, accountRepo repository.AccountRepository, unipileClient client.UnipileClient, logger *logrus.Logger) AccountUsecase {
+	return &AccountUsecaseImpl{
 		txRepo:        txRepo,
 		accountRepo:   accountRepo,
 		unipileClient: unipileClient,
@@ -33,12 +41,12 @@ func NewAccountUsecase(txRepo repository.TxRepository, accountRepo repository.Ac
 }
 
 // ListUserAccounts retrieves all accounts for a user
-func (a *AccountUsecase) ListUserAccounts(ctx context.Context, userID uint) ([]*entity.Account, error) {
+func (a *AccountUsecaseImpl) ListUserAccounts(ctx context.Context, userID uint) ([]*entity.Account, error) {
 	return a.accountRepo.GetByUserID(ctx, userID)
 }
 
 // DisconnectLinkedIn disconnects LinkedIn account for a user
-func (a *AccountUsecase) DisconnectLinkedIn(ctx context.Context, userID uint, accountID string) error {
+func (a *AccountUsecaseImpl) DisconnectLinkedIn(ctx context.Context, userID uint, accountID string) error {
 	return a.txRepo.Do(ctx, func(repos *repository.Repositories) error {
 		if err := repos.Account.DeleteByUserIDAndAccountID(ctx, userID, accountID); err != nil {
 			return fmt.Errorf("failed to delete account: %w", err)
@@ -59,7 +67,7 @@ type ConnectLinkedInRequest struct {
 }
 
 // ConnectLinkedInAccount connects a LinkedIn account for a user
-func (a *AccountUsecase) ConnectLinkedInAccount(ctx context.Context, userID uint, req *ConnectLinkedInRequest) (*entity.Account, error) {
+func (a *AccountUsecaseImpl) ConnectLinkedInAccount(ctx context.Context, userID uint, req *ConnectLinkedInRequest) (*entity.Account, error) {
 
 	resp, err := a.unipileClient.ConnectLinkedIn(&client.ConnectLinkedInRequest{
 		Provider:    "LINKEDIN",
@@ -116,7 +124,7 @@ type SolveCheckpointRequest struct {
 var ErrInvalidCodeOrExpiredCheckpoint = errors.New("invalid code or expired checkpoint")
 
 // SolveCheckpoint solves a LinkedIn authentication checkpoint
-func (a *AccountUsecase) SolveCheckpoint(ctx context.Context, userID uint, req *SolveCheckpointRequest) (*entity.Account, error) {
+func (a *AccountUsecaseImpl) SolveCheckpoint(ctx context.Context, userID uint, req *SolveCheckpointRequest) (*entity.Account, error) {
 
 	var account *entity.Account
 

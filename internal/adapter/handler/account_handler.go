@@ -10,19 +10,27 @@ import (
 )
 
 // AccountHandler handles account-related requests
-type AccountHandler struct {
-	accountUsecase *account.AccountUsecase
+type AccountHandler interface {
+	ListUserAccounts(c *gin.Context)
+	DisconnectLinkedIn(c *gin.Context)
+	ConnectLinkedIn(c *gin.Context)
+	SolveCheckpoint(c *gin.Context)
+}
+
+// AccountHandlerImpl handles account-related requests
+type AccountHandlerImpl struct {
+	accountUsecase account.AccountUsecase
 }
 
 // NewAccountHandler creates a new account handler
-func NewAccountHandler(accountUsecase *account.AccountUsecase) *AccountHandler {
-	return &AccountHandler{
+func NewAccountHandler(accountUsecase account.AccountUsecase) AccountHandler {
+	return &AccountHandlerImpl{
 		accountUsecase: accountUsecase,
 	}
 }
 
 // ListUserAccounts retrieves all accounts for the current user
-func (h *AccountHandler) ListUserAccounts(c *gin.Context) {
+func (h *AccountHandlerImpl) ListUserAccounts(c *gin.Context) {
 	userIDStr, exists := c.Get("user_id")
 	if !exists {
 		c.JSON(http.StatusUnauthorized, gin.H{"error": "User not authenticated"})
@@ -52,7 +60,7 @@ type DisconnectLinkedInRequest struct {
 }
 
 // DisconnectLinkedIn disconnects LinkedIn account for the current user
-func (h *AccountHandler) DisconnectLinkedIn(c *gin.Context) {
+func (h *AccountHandlerImpl) DisconnectLinkedIn(c *gin.Context) {
 	userIDStr, exists := c.Get("user_id")
 	if !exists {
 		c.JSON(http.StatusUnauthorized, gin.H{"error": "User not authenticated"})
@@ -92,7 +100,7 @@ type ConnectLinkedInRequest struct {
 }
 
 // ConnectLinkedIn handles LinkedIn account connection
-func (h *AccountHandler) ConnectLinkedIn(c *gin.Context) {
+func (h *AccountHandlerImpl) ConnectLinkedIn(c *gin.Context) {
 	userIDStr, exists := c.Get("user_id")
 	if !exists {
 		c.JSON(http.StatusUnauthorized, gin.H{"error": "User not authenticated"})
@@ -152,7 +160,7 @@ type SolveCheckpointRequest struct {
 }
 
 // SolveCheckpoint handles LinkedIn checkpoint solving
-func (h *AccountHandler) SolveCheckpoint(c *gin.Context) {
+func (h *AccountHandlerImpl) SolveCheckpoint(c *gin.Context) {
 	userIDStr, exists := c.Get("user_id")
 	if !exists {
 		c.JSON(http.StatusUnauthorized, gin.H{"error": "User not authenticated"})

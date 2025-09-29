@@ -13,15 +13,23 @@ import (
 )
 
 // UserUsecase handles user business logic
-type UserUsecase struct {
+type UserUsecase interface {
+	GetUserByID(ctx context.Context, id uint) (*entity.User, error)
+	CreateUser(ctx context.Context, username, password string) (*entity.User, error)
+	AuthenticateUser(ctx context.Context, username, password string) (*entity.User, string, error)
+	RefreshToken(ctx context.Context, token string) (string, error)
+}
+
+// UserUsecaseImpl handles user business logic
+type UserUsecaseImpl struct {
 	userRepo   repository.UserRepository
 	jwtService *jwt.JWTService
 	logger     *logrus.Logger
 }
 
 // NewUserUsecase creates a new user usecase
-func NewUserUsecase(userRepo repository.UserRepository, jwtService *jwt.JWTService, logger *logrus.Logger) *UserUsecase {
-	return &UserUsecase{
+func NewUserUsecase(userRepo repository.UserRepository, jwtService *jwt.JWTService, logger *logrus.Logger) UserUsecase {
+	return &UserUsecaseImpl{
 		userRepo:   userRepo,
 		jwtService: jwtService,
 		logger:     logger,
@@ -29,12 +37,12 @@ func NewUserUsecase(userRepo repository.UserRepository, jwtService *jwt.JWTServi
 }
 
 // GetUserByID retrieves a user by ID
-func (u *UserUsecase) GetUserByID(ctx context.Context, id uint) (*entity.User, error) {
+func (u *UserUsecaseImpl) GetUserByID(ctx context.Context, id uint) (*entity.User, error) {
 	return u.userRepo.GetByID(ctx, id)
 }
 
 // CreateUser creates a new user
-func (u *UserUsecase) CreateUser(ctx context.Context, username, password string) (*entity.User, error) {
+func (u *UserUsecaseImpl) CreateUser(ctx context.Context, username, password string) (*entity.User, error) {
 	// Check if user already exists
 	existingUser, _ := u.userRepo.GetByUsername(ctx, username)
 	if existingUser != nil {
@@ -60,7 +68,7 @@ func (u *UserUsecase) CreateUser(ctx context.Context, username, password string)
 }
 
 // AuthenticateUser authenticates a user with username and password
-func (u *UserUsecase) AuthenticateUser(ctx context.Context, username, password string) (*entity.User, string, error) {
+func (u *UserUsecaseImpl) AuthenticateUser(ctx context.Context, username, password string) (*entity.User, string, error) {
 	user, err := u.userRepo.GetByUsername(ctx, username)
 	if err != nil {
 		return nil, "", errors.New("invalid credentials")
@@ -81,6 +89,6 @@ func (u *UserUsecase) AuthenticateUser(ctx context.Context, username, password s
 }
 
 // RefreshToken refreshes a token
-func (u *UserUsecase) RefreshToken(ctx context.Context, token string) (string, error) {
+func (u *UserUsecaseImpl) RefreshToken(ctx context.Context, token string) (string, error) {
 	return u.jwtService.RefreshToken(token)
 }

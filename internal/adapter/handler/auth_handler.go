@@ -9,13 +9,22 @@ import (
 )
 
 // AuthHandler handles authentication requests
-type AuthHandler struct {
-	userUsecase *user.UserUsecase
+type AuthHandler interface {
+	Register(c *gin.Context)
+	Login(c *gin.Context)
+	Logout(c *gin.Context)
+	RefreshToken(c *gin.Context)
+	GetCurrentUser(c *gin.Context)
+}
+
+// AuthHandlerImpl handles authentication requests
+type AuthHandlerImpl struct {
+	userUsecase user.UserUsecase
 }
 
 // NewAuthHandler creates a new auth handler
-func NewAuthHandler(userUsecase *user.UserUsecase) *AuthHandler {
-	return &AuthHandler{
+func NewAuthHandler(userUsecase user.UserUsecase) AuthHandler {
+	return &AuthHandlerImpl{
 		userUsecase: userUsecase,
 	}
 }
@@ -33,7 +42,7 @@ type LoginRequest struct {
 }
 
 // Register handles user registration
-func (h *AuthHandler) Register(c *gin.Context) {
+func (h *AuthHandlerImpl) Register(c *gin.Context) {
 	var req RegisterRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request data"})
@@ -57,7 +66,7 @@ func (h *AuthHandler) Register(c *gin.Context) {
 }
 
 // Login handles user login
-func (h *AuthHandler) Login(c *gin.Context) {
+func (h *AuthHandlerImpl) Login(c *gin.Context) {
 	var req LoginRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request data"})
@@ -81,7 +90,7 @@ func (h *AuthHandler) Login(c *gin.Context) {
 }
 
 // Logout handles user logout
-func (h *AuthHandler) Logout(c *gin.Context) {
+func (h *AuthHandlerImpl) Logout(c *gin.Context) {
 	// TODO:
 	// In a stateless JWT system, logout is handled on the client side
 	// by removing the token from storage. However, we can add token
@@ -93,7 +102,7 @@ func (h *AuthHandler) Logout(c *gin.Context) {
 }
 
 // RefreshToken handles token refresh
-func (h *AuthHandler) RefreshToken(c *gin.Context) {
+func (h *AuthHandlerImpl) RefreshToken(c *gin.Context) {
 	// Get current token from Authorization header
 	authHeader := c.GetHeader("Authorization")
 	if authHeader == "" {
@@ -121,7 +130,7 @@ func (h *AuthHandler) RefreshToken(c *gin.Context) {
 }
 
 // GetCurrentUser returns current user info
-func (h *AuthHandler) GetCurrentUser(c *gin.Context) {
+func (h *AuthHandlerImpl) GetCurrentUser(c *gin.Context) {
 	userIDStr, exists := c.Get("user_id")
 	if !exists {
 		c.JSON(http.StatusUnauthorized, gin.H{"error": "User not authenticated"})

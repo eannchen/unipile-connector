@@ -11,15 +11,25 @@ import (
 )
 
 // UnipileClient handles communication with Unipile API
-type UnipileClient struct {
+type UnipileClient interface {
+	ListAccounts() (*AccountListResponse, error)
+	TestConnection() error
+	GetAccount(accountID string) (*Account, error)
+	DeleteAccount(accountID string) error
+	ConnectLinkedIn(req *ConnectLinkedInRequest) (*ConnectLinkedInResponse, error)
+	SolveCheckpoint(req *SolveCheckpointRequest) (*SolveCheckpointResponse, error)
+}
+
+// UnipileClientImpl handles communication with Unipile API
+type UnipileClientImpl struct {
 	baseURL    string
 	apiKey     string
 	httpClient *http.Client
 }
 
 // NewUnipileClient creates a new Unipile client
-func NewUnipileClient(baseURL, apiKey string) *UnipileClient {
-	return &UnipileClient{
+func NewUnipileClient(baseURL, apiKey string) UnipileClient {
+	return &UnipileClientImpl{
 		baseURL: baseURL,
 		apiKey:  apiKey,
 		httpClient: &http.Client{
@@ -54,7 +64,7 @@ type AccountSource struct {
 }
 
 // ListAccounts lists all accounts from Unipile API
-func (c *UnipileClient) ListAccounts() (*AccountListResponse, error) {
+func (c *UnipileClientImpl) ListAccounts() (*AccountListResponse, error) {
 	url := fmt.Sprintf("%s/api/v1/accounts", c.baseURL)
 
 	httpReq, err := http.NewRequest("GET", url, nil)
@@ -89,7 +99,7 @@ func (c *UnipileClient) ListAccounts() (*AccountListResponse, error) {
 }
 
 // TestConnection tests the connection to Unipile API by calling ListAccounts
-func (c *UnipileClient) TestConnection() error {
+func (c *UnipileClientImpl) TestConnection() error {
 	_, err := c.ListAccounts()
 	if err != nil {
 		return fmt.Errorf("unipile API health check failed: %w", err)
@@ -98,7 +108,7 @@ func (c *UnipileClient) TestConnection() error {
 }
 
 // GetAccount gets the status of a LinkedIn account
-func (c *UnipileClient) GetAccount(accountID string) (*Account, error) {
+func (c *UnipileClientImpl) GetAccount(accountID string) (*Account, error) {
 	url := fmt.Sprintf("%s/api/v1/accounts/%s", c.baseURL, accountID)
 
 	httpReq, err := http.NewRequest("GET", url, nil)
@@ -136,7 +146,7 @@ func (c *UnipileClient) GetAccount(accountID string) (*Account, error) {
 var ErrAccountNotFound = errors.New("account not found")
 
 // DeleteAccount deletes an account from Unipile API
-func (c *UnipileClient) DeleteAccount(accountID string) error {
+func (c *UnipileClientImpl) DeleteAccount(accountID string) error {
 	url := fmt.Sprintf("%s/api/v1/accounts/%s", c.baseURL, accountID)
 
 	httpReq, err := http.NewRequest("DELETE", url, nil)
@@ -193,7 +203,7 @@ type Checkpoint struct {
 }
 
 // ConnectLinkedIn connects a LinkedIn account using Unipile
-func (c *UnipileClient) ConnectLinkedIn(req *ConnectLinkedInRequest) (*ConnectLinkedInResponse, error) {
+func (c *UnipileClientImpl) ConnectLinkedIn(req *ConnectLinkedInRequest) (*ConnectLinkedInResponse, error) {
 	url := fmt.Sprintf("%s/api/v1/accounts", c.baseURL)
 
 	jsonData, err := json.Marshal(req)
@@ -259,7 +269,7 @@ type SolveCheckpointResponse struct {
 var ErrInvalidCodeOrExpiredCheckpoint = errors.New("invalid code or expired checkpoint")
 
 // SolveCheckpoint solves a LinkedIn authentication checkpoint
-func (c *UnipileClient) SolveCheckpoint(req *SolveCheckpointRequest) (*SolveCheckpointResponse, error) {
+func (c *UnipileClientImpl) SolveCheckpoint(req *SolveCheckpointRequest) (*SolveCheckpointResponse, error) {
 	url := fmt.Sprintf("%s/api/v1/accounts/checkpoint", c.baseURL)
 
 	jsonData, err := json.Marshal(req)

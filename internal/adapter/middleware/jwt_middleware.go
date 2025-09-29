@@ -10,19 +10,24 @@ import (
 )
 
 // JWTMiddleware handles JWT authentication
-type JWTMiddleware struct {
+type JWTMiddleware interface {
+	AuthMiddleware() gin.HandlerFunc
+}
+
+// JWTMiddlewareImpl handles JWT authentication
+type JWTMiddlewareImpl struct {
 	jwtService *jwt.JWTService
 }
 
 // NewJWTMiddleware creates a new JWT middleware
-func NewJWTMiddleware(jwtService *jwt.JWTService) *JWTMiddleware {
-	return &JWTMiddleware{
+func NewJWTMiddleware(jwtService *jwt.JWTService) JWTMiddleware {
+	return &JWTMiddlewareImpl{
 		jwtService: jwtService,
 	}
 }
 
 // AuthMiddleware validates JWT tokens
-func (m *JWTMiddleware) AuthMiddleware() gin.HandlerFunc {
+func (m *JWTMiddlewareImpl) AuthMiddleware() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		// Get token from Authorization header
 		authHeader := c.GetHeader("Authorization")
