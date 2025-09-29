@@ -119,40 +119,38 @@ var ErrInvalidCodeOrExpiredCheckpoint = errors.New("invalid code or expired chec
 func (a *AccountUsecase) SolveCheckpoint(ctx context.Context, userID uint, req *SolveCheckpointRequest) (*entity.Account, error) {
 
 	var account *entity.Account
-	var err error
 
-	err = a.txRepo.Do(ctx, func(repos *repository.Repositories) error {
-		account, err = repos.Account.GetByUserIDAndProviderForUpdate(ctx, userID, "LINKEDIN")
-		if err != nil && !errors.Is(err, repository.ErrAccountNotFound) {
-			return err
+	if err := a.txRepo.Do(ctx, func(repos *repository.Repositories) error {
+		var err error
+
+		account, err = repos.Account.GetByUserIDAndAccountIDForUpdate(ctx, userID, req.AccountID)
+		if err != nil {
+			return fmt.Errorf("failed to get account: %w", err)
 		}
-		if account != nil { // Account already exists and connected
+		if account.CurrentStatus == "OK" {
 			return nil
 		}
 
-		resp, err := a.unipileClient.SolveCheckpoint(&client.SolveCheckpointRequest{
-			Provider:  "LINKEDIN",
+		account.CurrentStatus = "OK"
+		if err := repos.Account.Update(ctx, account); err != nil {
+			return fmt.Errorf("failed to update account: %w", err)
+		}
+
+		if _, err := a.unipileClient.SolveCheckpoint(&client.SolveCheckpointRequest{
+			Provider:  account.Provider,
 			AccountID: req.AccountID,
 			Code:      req.Code,
-		})
-		if err != nil {
+		}); err != nil {
 			if errors.Is(err, client.ErrInvalidCodeOrExpiredCheckpoint) {
 				return ErrInvalidCodeOrExpiredCheckpoint
 			}
 			return err
 		}
 
-		account = &entity.Account{
-			UserID:    userID,
-			Provider:  "LINKEDIN",
-			AccountID: resp.AccountID,
-		}
-		if err := a.accountRepo.Create(ctx, account); err != nil {
-			a.logger.Errorf("Failed to create account: %v with accountID created on Unipile: %s", err, account.AccountID)
-			return err
-		}
 		return nil
-	})
+	}); err != nil {
+		return nil, err
+	}
 
-	return account, err
+	return account, nil
 }

@@ -25,6 +25,28 @@ func (r *accountRepo) Create(ctx context.Context, account *entity.Account) error
 	return r.db.WithContext(ctx).Create(account).Error
 }
 
+func (r *accountRepo) GetByUserIDAndAccountID(ctx context.Context, userID uint, accountID string) (*entity.Account, error) {
+	var account entity.Account
+	err := r.db.WithContext(ctx).Where("user_id = ? AND account_id = ?", userID, accountID).First(&account).Error
+	if err != nil {
+		return nil, err
+	}
+	return &account, nil
+}
+
+func (r *accountRepo) GetByUserIDAndAccountIDForUpdate(ctx context.Context, userID uint, accountID string) (*entity.Account, error) {
+	var account entity.Account
+	err := r.db.WithContext(ctx).Clauses(clause.Locking{Strength: "UPDATE"}).Where("user_id = ? AND account_id = ?", userID, accountID).First(&account).Error
+	if err != nil {
+		return nil, err
+	}
+	return &account, nil
+}
+
+func (r *accountRepo) Update(ctx context.Context, account *entity.Account) error {
+	return r.db.WithContext(ctx).Save(account).Error
+}
+
 func (r *accountRepo) DeleteByUserIDAndAccountID(ctx context.Context, userID uint, accountID string) error {
 	return r.db.WithContext(ctx).Where("user_id = ? AND account_id = ?", userID, accountID).Delete(&entity.Account{}).Error
 }
@@ -69,10 +91,6 @@ func (r *accountRepo) GetByUserIDAndProviderForUpdate(ctx context.Context, userI
 		return nil, err
 	}
 	return &account, nil
-}
-
-func (r *accountRepo) Update(ctx context.Context, account *entity.Account) error {
-	return r.db.WithContext(ctx).Save(account).Error
 }
 
 func (r *accountRepo) Delete(ctx context.Context, id uint) error {

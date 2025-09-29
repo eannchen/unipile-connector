@@ -180,8 +180,8 @@ func (h *AccountHandler) SolveCheckpoint(c *gin.Context) {
 	if err != nil {
 		if errors.Is(err, account.ErrInvalidCodeOrExpiredCheckpoint) {
 			c.JSON(http.StatusUnauthorized, gin.H{
-				"type":   "ErrInvalidCodeOrExpiredCheckpoint",
-				"detail": err.Error(),
+				"type":  "ErrInvalidCodeOrExpiredCheckpoint",
+				"error": err.Error(),
 			})
 			return
 		}
@@ -189,14 +189,6 @@ func (h *AccountHandler) SolveCheckpoint(c *gin.Context) {
 		return
 	}
 
-	c.JSON(http.StatusOK, gin.H{
-		"message":    "LinkedIn account connected successfully",
-		"account_id": entityAccount.AccountID,
-		"account": gin.H{
-			"id":         entityAccount.ID,
-			"provider":   entityAccount.Provider,
-			"account_id": entityAccount.AccountID,
-			"created_at": entityAccount.CreatedAt,
-		},
-	})
+	c.JSON(http.StatusOK, entityAccount)
+	return
 }
