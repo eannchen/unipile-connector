@@ -32,7 +32,7 @@ A full-stack web demonstration application enables users to connect their Linked
   - `IN_APP_VALIDATION`
     - Webhook Integration
     - WebSocket Support (for Real-time frontend updates)
-- UI/UX Enhancement for multiple accounts verification
+- UI/UX Enhancement for multiple connecting accounts verification
 - Frontend Code Cleanup
 
 ### Uncertain
