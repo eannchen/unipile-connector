@@ -19,7 +19,8 @@ A full-stack web demonstration application enables users to connect their Linked
 - Error Handling
 - Security Enhancements
   - CORS
-  - Rate Limiting
+  - Rate Limiting (memory store for deployment simplicity)
+  - JWT token blacklisting (memory store for deployment simplicity)
 - Clean Architecture
 - Testing
 - GitHub Actions CI for auto testing
@@ -32,8 +33,6 @@ A full-stack web demonstration application enables users to connect their Linked
     - Webhook Integration
     - WebSocket Support (for Real-time frontend updates)
   - `CAPTCHA`
-- Security Enhancements
-  - JWT token blacklisting
 - UI/UX Enhancement for multiple accounts verification
 - Frontend Code Cleanup
 
