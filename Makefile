@@ -23,7 +23,7 @@ run:
 
 # Run tests
 test:
-	go test ./...
+	go test -cover ./...
 
 # Clean build artifacts
 clean:
