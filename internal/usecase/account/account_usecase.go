@@ -124,9 +124,6 @@ type SolveCheckpointRequest struct {
 	Code      string
 }
 
-// ErrInvalidCodeOrExpiredCheckpoint is returned when the code is invalid or the checkpoint expired
-var ErrInvalidCodeOrExpiredCheckpoint = errors.New("invalid code or expired checkpoint")
-
 // SolveCheckpoint solves a LinkedIn authentication checkpoint
 func (a *AccountUsecaseImpl) SolveCheckpoint(ctx context.Context, userID uint, req *SolveCheckpointRequest) (*entity.Account, error) {
 
@@ -154,7 +151,7 @@ func (a *AccountUsecaseImpl) SolveCheckpoint(ctx context.Context, userID uint, r
 			Code:      req.Code,
 		}); err != nil {
 			if errors.Is(err, service.ErrInvalidCodeOrExpiredCheckpoint) {
-				return ErrInvalidCodeOrExpiredCheckpoint
+				return errs.ErrInvalidCodeOrExpiredCheckpoint
 			}
 			return errs.WrapInternalError(err, "Failed to solve checkpoint")
 		}

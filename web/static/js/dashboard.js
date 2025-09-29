@@ -544,7 +544,7 @@ async function solveCheckpoint() {
             showAlert('LinkedIn account connected successfully!', 'success');
             hideCheckpointSection();
             loadUserAccounts();
-        } else if (response.status === 401 && data.type === 'ErrInvalidCodeOrExpiredCheckpoint') {
+        } else if (response.status === 401) {
             showAlert('Invalid code or checkpoint expired. Please try again.', 'danger');
             document.getElementById('checkpointCode').value = '';
         } else {

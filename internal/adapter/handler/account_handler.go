@@ -176,11 +176,8 @@ func (h *AccountHandlerImpl) SolveCheckpoint(c *gin.Context) {
 
 	entityAccount, err := h.accountUsecase.SolveCheckpoint(c.Request.Context(), userID, solveReq)
 	if err != nil {
-		if errors.Is(err, account.ErrInvalidCodeOrExpiredCheckpoint) {
-			c.JSON(http.StatusUnauthorized, gin.H{
-				"type":  "ErrInvalidCodeOrExpiredCheckpoint",
-				"error": err.Error(),
-			})
+		if errors.Is(err, errs.ErrInvalidCodeOrExpiredCheckpoint) {
+			RespondUnauthorized(c, err)
 			return
 		}
 		RespondError(c, err)

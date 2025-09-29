@@ -38,3 +38,16 @@ func RespondError(c *gin.Context, err error) {
 		c.AbortWithStatusJSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 	}
 }
+
+// RespondUnauthorized responds with the appropriate unauthorized code and message
+func RespondUnauthorized(c *gin.Context, err error) {
+	if err == nil {
+		return
+	}
+	var codedErr *errs.CodedError
+	if errors.As(err, &codedErr) {
+		c.AbortWithStatusJSON(http.StatusUnauthorized, err.(*errs.CodedError))
+	} else {
+		c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": err.Error()})
+	}
+}
