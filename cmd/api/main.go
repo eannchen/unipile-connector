@@ -11,11 +11,11 @@ import (
 
 	"github.com/sirupsen/logrus"
 
-	"unipile-connector/config"
 	"unipile-connector/internal/adapter/handler"
 	"unipile-connector/internal/adapter/middleware"
 	"unipile-connector/internal/domain/service"
 	"unipile-connector/internal/infrastructure/client"
+	"unipile-connector/internal/infrastructure/config"
 	"unipile-connector/internal/infrastructure/database"
 	"unipile-connector/internal/infrastructure/server"
 	"unipile-connector/internal/usecase/account"

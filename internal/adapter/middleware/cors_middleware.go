@@ -3,7 +3,7 @@ package middleware
 import (
 	"github.com/gin-gonic/gin"
 
-	"unipile-connector/config"
+	"unipile-connector/internal/infrastructure/config"
 )
 
 // CORSMiddleware handles CORS
