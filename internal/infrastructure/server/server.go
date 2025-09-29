@@ -37,16 +37,16 @@ func NewServer(
 	jwtSecretKey string,
 	jwtIssuer string,
 ) *Server {
-	// Initialize use cases
-	userUsecase := user.NewUserUsecase(repos.User, logger)
-	accountUsecase := account.NewAccountUsecase(repos.Account, repos.Tx, unipileClient, logger)
-
 	// Initialize JWT service
 	jwtService := jwt.NewJWTService(jwtSecretKey, jwtIssuer)
 	jwtMiddleware := jwtMiddleware.NewJWTMiddleware(jwtService)
 
+	// Initialize use cases
+	userUsecase := user.NewUserUsecase(repos.User, jwtService, logger)
+	accountUsecase := account.NewAccountUsecase(repos.Account, repos.Tx, unipileClient, logger)
+
 	// Initialize handlers
-	authHandler := handler.NewAuthHandler(userUsecase, jwtService)
+	authHandler := handler.NewAuthHandler(userUsecase)
 	accountHandler := handler.NewAccountHandler(accountUsecase)
 	authMiddleware := middleware.NewAuthMiddleware(userUsecase, logger)
 

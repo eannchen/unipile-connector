@@ -6,20 +6,17 @@ import (
 	"github.com/gin-gonic/gin"
 
 	"unipile-connector/internal/usecase/user"
-	"unipile-connector/pkg/jwt"
 )
 
 // AuthHandler handles authentication requests
 type AuthHandler struct {
 	userUsecase *user.UserUsecase
-	jwtService  *jwt.JWTService
 }
 
 // NewAuthHandler creates a new auth handler
-func NewAuthHandler(userUsecase *user.UserUsecase, jwtService *jwt.JWTService) *AuthHandler {
+func NewAuthHandler(userUsecase *user.UserUsecase) *AuthHandler {
 	return &AuthHandler{
 		userUsecase: userUsecase,
-		jwtService:  jwtService,
 	}
 }
 
@@ -67,16 +64,9 @@ func (h *AuthHandler) Login(c *gin.Context) {
 		return
 	}
 
-	user, err := h.userUsecase.AuthenticateUser(c.Request.Context(), req.Username, req.Password)
+	user, token, err := h.userUsecase.AuthenticateUser(c.Request.Context(), req.Username, req.Password)
 	if err != nil {
 		c.JSON(http.StatusUnauthorized, gin.H{"error": "Invalid credentials"})
-		return
-	}
-
-	// Generate JWT token
-	token, err := h.jwtService.GenerateToken(user.ID, user.Username)
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to generate token"})
 		return
 	}
 
@@ -118,7 +108,7 @@ func (h *AuthHandler) RefreshToken(c *gin.Context) {
 	}
 
 	// Refresh token
-	newToken, err := h.jwtService.RefreshToken(tokenString)
+	newToken, err := h.userUsecase.RefreshToken(c.Request.Context(), tokenString)
 	if err != nil {
 		c.JSON(http.StatusUnauthorized, gin.H{"error": "Invalid or expired token"})
 		return
