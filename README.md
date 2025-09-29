@@ -8,11 +8,11 @@ A full-stack web application that allows users to connect their LinkedIn account
 - LinkedIn Connection
   - Username/password authentication
   - Cookie-based authentication (li_at token)
-- 2FA/OTP Checkpoint Handling
+- Checkpoint Handling
+  - 2FA/OTP
 - Clean Architecture
   - e.g., Repository and Use Case Patterns
   - Dependency Injection
-
 
 ### Incomplete
 
@@ -23,9 +23,10 @@ A full-stack web application that allows users to connect their LinkedIn account
   - CAPTCHA
   - PHONE_REGISTER
 - Corn Job (Remove accounts where checkpoints are expired)
-- Error Recovery
-- Rate Limiting
 - Security Enhancements
-- Code structure Enhancements
+  - Rate Limiting
+  - CORS
+- Better Error Handling for UX
+- Code Cleanup and Refactoring
 - Testing
 - Monitoring
