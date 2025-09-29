@@ -71,9 +71,7 @@ func (h *AuthHandlerImpl) Register(c *gin.Context) {
 		return
 	}
 
-	// Set session or JWT token here
-	c.JSON(http.StatusCreated, gin.H{
-		"message": "User created successfully",
+	RespondSuccess(c, http.StatusCreated, "User created successfully", gin.H{
 		"user": gin.H{
 			"id":       user.ID,
 			"username": user.Username,
@@ -95,9 +93,8 @@ func (h *AuthHandlerImpl) Login(c *gin.Context) {
 		return
 	}
 
-	c.JSON(http.StatusOK, gin.H{
-		"message": "Login successful",
-		"token":   token,
+	RespondSuccess(c, http.StatusOK, "Login successful", gin.H{
+		"token": token,
 		"user": gin.H{
 			"id":       user.ID,
 			"username": user.Username,
@@ -111,10 +108,7 @@ func (h *AuthHandlerImpl) Logout(c *gin.Context) {
 	// In a stateless JWT system, logout is handled on the client side
 	// by removing the token from storage. However, we can add token
 	// blacklisting here if needed for enhanced security.
-
-	c.JSON(http.StatusOK, gin.H{
-		"message": "Logout successful",
-	})
+	RespondSuccess(c, http.StatusOK, "Logout successful", nil)
 }
 
 // RefreshToken handles token refresh
@@ -139,9 +133,8 @@ func (h *AuthHandlerImpl) RefreshToken(c *gin.Context) {
 		return
 	}
 
-	c.JSON(http.StatusOK, gin.H{
-		"message": "Token refreshed successfully",
-		"token":   newToken,
+	RespondSuccess(c, http.StatusOK, "Token refreshed successfully", gin.H{
+		"token": newToken,
 	})
 }
 
@@ -159,10 +152,8 @@ func (h *AuthHandlerImpl) GetCurrentUser(c *gin.Context) {
 		return
 	}
 
-	c.JSON(http.StatusOK, gin.H{
-		"user": gin.H{
-			"id":       user.ID,
-			"username": user.Username,
-		},
+	RespondSuccess(c, http.StatusOK, "User retrieved successfully", gin.H{
+		"id":       user.ID,
+		"username": user.Username,
 	})
 }
