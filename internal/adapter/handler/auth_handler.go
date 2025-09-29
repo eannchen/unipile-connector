@@ -1,10 +1,12 @@
 package handler
 
 import (
+	"errors"
 	"net/http"
 
 	"github.com/gin-gonic/gin"
 
+	"unipile-connector/internal/domain/errs"
 	"unipile-connector/internal/usecase/user"
 )
 
@@ -41,17 +43,31 @@ type LoginRequest struct {
 	Password string `json:"password" binding:"required"`
 }
 
+func (h *AuthHandlerImpl) userIDFromContext(c *gin.Context) (uint, error) {
+	userIDStr, exists := c.Get("user_id")
+	if !exists {
+		return 0, errs.ErrUserNotAuthenticated
+	}
+
+	userID, ok := userIDStr.(uint)
+	if !ok {
+		return 0, errs.ErrInvalidUserID
+	}
+
+	return userID, nil
+}
+
 // Register handles user registration
 func (h *AuthHandlerImpl) Register(c *gin.Context) {
 	var req RegisterRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request data"})
+		RespondError(c, errs.WrapValidationError(err, "Invalid request data"))
 		return
 	}
 
 	user, err := h.userUsecase.CreateUser(c.Request.Context(), req.Username, req.Password)
 	if err != nil {
-		c.JSON(http.StatusConflict, gin.H{"error": err.Error()})
+		RespondError(c, err)
 		return
 	}
 
@@ -69,13 +85,13 @@ func (h *AuthHandlerImpl) Register(c *gin.Context) {
 func (h *AuthHandlerImpl) Login(c *gin.Context) {
 	var req LoginRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request data"})
+		RespondError(c, errs.WrapValidationError(err, "Invalid request data"))
 		return
 	}
 
 	user, token, err := h.userUsecase.AuthenticateUser(c.Request.Context(), req.Username, req.Password)
 	if err != nil {
-		c.JSON(http.StatusUnauthorized, gin.H{"error": "Invalid credentials"})
+		RespondError(c, err)
 		return
 	}
 
@@ -106,7 +122,7 @@ func (h *AuthHandlerImpl) RefreshToken(c *gin.Context) {
 	// Get current token from Authorization header
 	authHeader := c.GetHeader("Authorization")
 	if authHeader == "" {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Authorization header required"})
+		RespondError(c, errs.WrapValidationError(errors.New("authorization header required"), "Authorization header required"))
 		return
 	}
 
@@ -119,7 +135,7 @@ func (h *AuthHandlerImpl) RefreshToken(c *gin.Context) {
 	// Refresh token
 	newToken, err := h.userUsecase.RefreshToken(c.Request.Context(), tokenString)
 	if err != nil {
-		c.JSON(http.StatusUnauthorized, gin.H{"error": "Invalid or expired token"})
+		RespondError(c, err)
 		return
 	}
 
@@ -131,21 +147,15 @@ func (h *AuthHandlerImpl) RefreshToken(c *gin.Context) {
 
 // GetCurrentUser returns current user info
 func (h *AuthHandlerImpl) GetCurrentUser(c *gin.Context) {
-	userIDStr, exists := c.Get("user_id")
-	if !exists {
-		c.JSON(http.StatusUnauthorized, gin.H{"error": "User not authenticated"})
-		return
-	}
-
-	userID, ok := userIDStr.(uint)
-	if !ok {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Invalid user ID"})
+	userID, err := h.userIDFromContext(c)
+	if err != nil {
+		RespondError(c, err)
 		return
 	}
 
 	user, err := h.userUsecase.GetUserByID(c.Request.Context(), userID)
 	if err != nil {
-		c.JSON(http.StatusNotFound, gin.H{"error": "User not found"})
+		RespondError(c, err)
 		return
 	}
 
