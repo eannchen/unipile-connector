@@ -23,7 +23,7 @@ type AccountUsecase struct {
 }
 
 // NewAccountUsecase creates a new account usecase
-func NewAccountUsecase(accountRepo repository.AccountRepository, txRepo repository.TxRepository, unipileClient *client.UnipileClient, logger *logrus.Logger) *AccountUsecase {
+func NewAccountUsecase(txRepo repository.TxRepository, accountRepo repository.AccountRepository, unipileClient *client.UnipileClient, logger *logrus.Logger) *AccountUsecase {
 	return &AccountUsecase{
 		txRepo:        txRepo,
 		accountRepo:   accountRepo,

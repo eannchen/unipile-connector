@@ -79,7 +79,7 @@ func main() {
 
 	// Initialize use cases
 	userUsecase := user.NewUserUsecase(repos.User, jwtService, log)
-	accountUsecase := account.NewAccountUsecase(repos.Account, repos.Tx, unipileClient, log)
+	accountUsecase := account.NewAccountUsecase(repos.Tx, repos.Account, unipileClient, log)
 
 	// Initialize handlers
 	authHandler := handler.NewAuthHandler(userUsecase)
