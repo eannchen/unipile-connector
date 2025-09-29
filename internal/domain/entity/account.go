@@ -1,6 +1,7 @@
 package entity
 
 import (
+	"encoding/json"
 	"time"
 
 	"gorm.io/gorm"
@@ -8,30 +9,35 @@ import (
 
 // Account represents a linked account for a user
 type Account struct {
-	ID        uint           `json:"id" gorm:"primaryKey"`
-	UserID    uint           `json:"user_id" gorm:"not null"`
+	ID uint `json:"id" gorm:"primaryKey"`
+
+	UserID uint `json:"user_id" gorm:"not null"`
+	User   User `json:"user" gorm:"foreignKey:UserID"`
+
+	CurrentStatus          string                 `json:"current_status" gorm:"not null"`
+	AccountStatusHistories []AccountStatusHistory `json:"account_status_histories" gorm:"foreignKey:AccountID"`
+
 	Provider  string         `json:"provider" gorm:"not null"` // e.g., "linkedin"
 	AccountID string         `json:"account_id" gorm:"not null"`
 	CreatedAt time.Time      `json:"created_at"`
 	UpdatedAt time.Time      `json:"updated_at"`
 	DeletedAt gorm.DeletedAt `json:"-" gorm:"index"`
-
-	// Foreign key relationship
-	User User `json:"user" gorm:"foreignKey:UserID"`
 }
 
-// UnipileConnectRequest represents request to connect LinkedIn account via Unipile
-type UnipileConnectRequest struct {
-	Type     string `json:"type" binding:"required"` // "credentials" or "cookie"
-	Username string `json:"username,omitempty"`
-	Password string `json:"password,omitempty"`
-	Cookie   string `json:"cookie,omitempty"`
-}
+// AccountStatusHistory represents the status history of an account
+type AccountStatusHistory struct {
+	ID        uint `json:"id" gorm:"primaryKey"`
+	AccountID uint `json:"account_id" gorm:"not null"`
 
-// UnipileConnectResponse represents response from Unipile connection
-type UnipileConnectResponse struct {
-	AccountID string `json:"account_id"`
-	Success   bool   `json:"success"`
-	Message   string `json:"message,omitempty"`
-}
+	Checkpoint          string          `json:"checkpoint"`
+	CheckpointMetadata  json.RawMessage `json:"checkpoint_metadata"`
+	CheckpointExpiresAt time.Time       `json:"checkpoint_expires_at"`
 
+	// System status: OK, PENDING
+	// Unipile status: OK, ERROR/STOPPED, CREDENTIALS, CONNECTING, DELETED, CREATION_SUCCESS, RECONNECTED, SYNC_SUCCESS
+	Status string `json:"status" gorm:"not null"`
+
+	CreatedAt time.Time      `json:"created_at"`
+	UpdatedAt time.Time      `json:"updated_at"`
+	DeletedAt gorm.DeletedAt `json:"-" gorm:"index"`
+}

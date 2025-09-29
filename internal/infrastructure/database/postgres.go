@@ -67,6 +67,24 @@ func RunMigrations(db *gorm.DB) error {
 						user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
 						provider VARCHAR(100) NOT NULL,
 						account_id VARCHAR(255) NOT NULL,
+						current_status VARCHAR(100) NOT NULL,
+						created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+						updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+						deleted_at TIMESTAMP NULL
+					);
+				`).Error; err != nil {
+					return err
+				}
+
+				// Create accounts_status_history table
+				if err := tx.Exec(`
+					CREATE TABLE IF NOT EXISTS account_status_histories (
+						id SERIAL PRIMARY KEY,
+						account_id INTEGER NOT NULL REFERENCES accounts(id) ON DELETE CASCADE,
+						checkpoint VARCHAR(100),
+						checkpoint_metadata JSONB,
+						checkpoint_expires_at TIMESTAMP,
+						status VARCHAR(100) NOT NULL,
 						created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
 						updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
 						deleted_at TIMESTAMP NULL
@@ -88,7 +106,7 @@ func RunMigrations(db *gorm.DB) error {
 				if err := tx.Exec(`CREATE INDEX IF NOT EXISTS idx_accounts_provider ON accounts(provider);`).Error; err != nil {
 					return err
 				}
-				if err := tx.Exec(`CREATE UNIQUE INDEX accounts_user_id_provider_unique_active ON accounts (user_id, provider) WHERE (deleted_at IS NULL)`).Error; err != nil {
+				if err := tx.Exec(`CREATE INDEX IF NOT EXISTS idx_accounts_status_history_account_id ON account_status_histories(account_id);`).Error; err != nil {
 					return err
 				}
 
