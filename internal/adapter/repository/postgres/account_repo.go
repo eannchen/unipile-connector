@@ -25,6 +25,10 @@ func (r *accountRepo) Create(ctx context.Context, account *entity.Account) error
 	return r.db.WithContext(ctx).Create(account).Error
 }
 
+func (r *accountRepo) DeleteByUserIDAndAccountID(ctx context.Context, userID uint, accountID string) error {
+	return r.db.WithContext(ctx).Where("user_id = ? AND account_id = ?", userID, accountID).Delete(&entity.Account{}).Error
+}
+
 func (r *accountRepo) GetByID(ctx context.Context, id uint) (*entity.Account, error) {
 	var account entity.Account
 	err := r.db.WithContext(ctx).Preload("User").First(&account, id).Error

@@ -38,19 +38,15 @@ func (a *AccountUsecase) ListUserAccounts(ctx context.Context, userID uint) ([]*
 }
 
 // DisconnectLinkedIn disconnects LinkedIn account for a user
-func (a *AccountUsecase) DisconnectLinkedIn(ctx context.Context, userID uint) error {
+func (a *AccountUsecase) DisconnectLinkedIn(ctx context.Context, userID uint, accountID string) error {
 	return a.txRepo.Do(ctx, func(repos *repository.Repositories) error {
-		account, err := repos.Account.GetByUserIDAndProviderForUpdate(ctx, userID, "LINKEDIN")
-		if err != nil {
-			if errors.Is(err, repository.ErrAccountNotFound) {
-				return nil
-			}
-			return err
+		if err := repos.Account.DeleteByUserIDAndAccountID(ctx, userID, accountID); err != nil {
+			return fmt.Errorf("failed to delete account: %w", err)
 		}
-		if err := a.unipileClient.DeleteAccount(account.AccountID); err != nil && err != client.ErrAccountNotFound {
-			return err
+		if err := a.unipileClient.DeleteAccount(accountID); err != nil && err != client.ErrAccountNotFound {
+			return fmt.Errorf("failed to delete account on Unipile: %w", err)
 		}
-		return repos.Account.DeleteByUserIDAndProvider(ctx, userID, "LINKEDIN")
+		return nil
 	})
 }
 

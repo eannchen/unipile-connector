@@ -46,6 +46,11 @@ func (h *AccountHandler) ListUserAccounts(c *gin.Context) {
 	})
 }
 
+// DisconnectLinkedInRequest represents request to disconnect a LinkedIn account
+type DisconnectLinkedInRequest struct {
+	AccountID string `json:"account_id" binding:"required"`
+}
+
 // DisconnectLinkedIn disconnects LinkedIn account for the current user
 func (h *AccountHandler) DisconnectLinkedIn(c *gin.Context) {
 	userIDStr, exists := c.Get("user_id")
@@ -60,7 +65,13 @@ func (h *AccountHandler) DisconnectLinkedIn(c *gin.Context) {
 		return
 	}
 
-	err := h.accountUsecase.DisconnectLinkedIn(c.Request.Context(), userID)
+	var req DisconnectLinkedInRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request data"})
+		return
+	}
+
+	err := h.accountUsecase.DisconnectLinkedIn(c.Request.Context(), userID, req.AccountID)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to disconnect account"})
 		return
