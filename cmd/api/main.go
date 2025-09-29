@@ -2,7 +2,6 @@ package main
 
 import (
 	"context"
-	"log"
 	"net/http"
 	"os"
 	"os/signal"
@@ -25,15 +24,15 @@ import (
 )
 
 func main() {
+	// Initialize logger
+	log := logger.NewLogger()
+	log.SetLevel(logrus.InfoLevel)
+
 	// Load configuration
 	cfg, err := config.Load("")
 	if err != nil {
 		log.Fatalf("Failed to load configuration: %v", err)
 	}
-
-	// Initialize logger
-	log := logger.NewLogger()
-	log.SetLevel(logrus.InfoLevel)
 
 	// Connect to database
 	db, err := database.Connect(database.Config{
@@ -57,7 +56,7 @@ func main() {
 	}()
 
 	// Run migrations
-	if err := database.RunMigrations(db); err != nil {
+	if err := database.RunMigrations(db, log); err != nil {
 		log.Fatalf("Failed to run migrations: %v", err)
 	}
 
@@ -94,6 +93,9 @@ func main() {
 	addr := cfg.Server.Host + ":" + cfg.Server.Port
 	log.Infof("Starting server on %s", addr)
 
+	// Set log level to warn before running server
+	log.SetLevel(logrus.WarnLevel)
+
 	// Start server in a goroutine
 	go func() {
 		if err := srv.Run(addr); err != nil && err != http.ErrServerClosed {
@@ -105,7 +107,7 @@ func main() {
 	quit := make(chan os.Signal, 1)
 	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
 	<-quit
-	log.Info("Gracefully Shutting down application...")
+	log.Warn("Gracefully Shutting down application...")
 
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
@@ -114,5 +116,5 @@ func main() {
 		log.Errorf("Server shutdown error: %v", err)
 	}
 
-	log.Info("Application exited")
+	log.Warn("Application exited")
 }
