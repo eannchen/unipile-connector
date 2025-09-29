@@ -71,7 +71,7 @@ func main() {
 	// Initialize JWT service and middleware
 	jwtService := service.NewJWTService(cfg.JWT.SecretKey, cfg.JWT.Issuer)
 	jwtMiddleware := middleware.NewJWTMiddleware(jwtService).AuthMiddleware()
-	corsMiddleware := middleware.CORSMiddleware(cfg)
+	corsMiddleware := middleware.CORSMiddleware(cfg.Server.Host)
 	middlewares := middleware.NewMiddlewares(corsMiddleware, jwtMiddleware)
 
 	// Initialize repositories
