@@ -50,8 +50,11 @@ jobs:
       - name: Verify dependencies
         run: go mod verify
 
-      - name: Run tests
-        run: go test -cover ./...
+      - name: Run config tests (without DB env vars)
+        run: go test -cover ./internal/infrastructure/config
+
+      - name: Run all other tests (with DB env vars)
+        run: go test -cover $(go list ./... | grep -v ./internal/infrastructure/config)
         env:
           DB_HOST: localhost
           DB_PORT: 5432
