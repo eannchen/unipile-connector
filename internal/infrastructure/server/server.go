@@ -24,7 +24,6 @@ type Server struct {
 	httpServer     *http.Server
 	authHandler    *handler.AuthHandler
 	accountHandler *handler.AccountHandler
-	authMiddleware *middleware.AuthMiddleware
 	jwtMiddleware  *jwtMiddleware.JWTMiddleware
 	logger         *logrus.Logger
 }
@@ -48,7 +47,6 @@ func NewServer(
 	// Initialize handlers
 	authHandler := handler.NewAuthHandler(userUsecase)
 	accountHandler := handler.NewAccountHandler(accountUsecase)
-	authMiddleware := middleware.NewAuthMiddleware(userUsecase, logger)
 
 	// Setup router
 	router := gin.Default()
@@ -58,7 +56,6 @@ func NewServer(
 		router:         router,
 		authHandler:    authHandler,
 		accountHandler: accountHandler,
-		authMiddleware: authMiddleware,
 		jwtMiddleware:  jwtMiddleware,
 		logger:         logger,
 	}
