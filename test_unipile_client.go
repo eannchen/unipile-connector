@@ -5,9 +5,9 @@ import (
 	"log"
 	"os"
 
-	"unipile-connector/config"
 	"unipile-connector/internal/domain/service"
 	"unipile-connector/internal/infrastructure/client"
+	"unipile-connector/internal/infrastructure/config"
 )
 
 func main() {
