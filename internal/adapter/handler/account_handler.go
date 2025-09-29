@@ -6,6 +6,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 
+	"unipile-connector/internal/domain/errs"
 	"unipile-connector/internal/usecase/account"
 )
 
@@ -29,17 +30,25 @@ func NewAccountHandler(accountUsecase account.AccountUsecase) AccountHandler {
 	}
 }
 
-// ListUserAccounts retrieves all accounts for the current user
-func (h *AccountHandlerImpl) ListUserAccounts(c *gin.Context) {
+func (h *AccountHandlerImpl) userIDFromContext(c *gin.Context) (uint, error) {
 	userIDStr, exists := c.Get("user_id")
 	if !exists {
-		c.JSON(http.StatusUnauthorized, gin.H{"error": "User not authenticated"})
-		return
+		return 0, errs.ErrUserNotAuthenticated
 	}
 
 	userID, ok := userIDStr.(uint)
 	if !ok {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Invalid user ID"})
+		return 0, errs.ErrInvalidUserID
+	}
+
+	return userID, nil
+}
+
+// ListUserAccounts retrieves all accounts for the current user
+func (h *AccountHandlerImpl) ListUserAccounts(c *gin.Context) {
+	userID, err := h.userIDFromContext(c)
+	if err != nil {
+		RespondError(c, err)
 		return
 	}
 
@@ -61,15 +70,9 @@ type DisconnectLinkedInRequest struct {
 
 // DisconnectLinkedIn disconnects LinkedIn account for the current user
 func (h *AccountHandlerImpl) DisconnectLinkedIn(c *gin.Context) {
-	userIDStr, exists := c.Get("user_id")
-	if !exists {
-		c.JSON(http.StatusUnauthorized, gin.H{"error": "User not authenticated"})
-		return
-	}
-
-	userID, ok := userIDStr.(uint)
-	if !ok {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Invalid user ID"})
+	userID, err := h.userIDFromContext(c)
+	if err != nil {
+		RespondError(c, err)
 		return
 	}
 
@@ -79,7 +82,7 @@ func (h *AccountHandlerImpl) DisconnectLinkedIn(c *gin.Context) {
 		return
 	}
 
-	err := h.accountUsecase.DisconnectLinkedIn(c.Request.Context(), userID, req.AccountID)
+	err = h.accountUsecase.DisconnectLinkedIn(c.Request.Context(), userID, req.AccountID)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to disconnect account"})
 		return
@@ -101,15 +104,9 @@ type ConnectLinkedInRequest struct {
 
 // ConnectLinkedIn handles LinkedIn account connection
 func (h *AccountHandlerImpl) ConnectLinkedIn(c *gin.Context) {
-	userIDStr, exists := c.Get("user_id")
-	if !exists {
-		c.JSON(http.StatusUnauthorized, gin.H{"error": "User not authenticated"})
-		return
-	}
-
-	userID, ok := userIDStr.(uint)
-	if !ok {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Invalid user ID"})
+	userID, err := h.userIDFromContext(c)
+	if err != nil {
+		RespondError(c, err)
 		return
 	}
 
@@ -161,15 +158,9 @@ type SolveCheckpointRequest struct {
 
 // SolveCheckpoint handles LinkedIn checkpoint solving
 func (h *AccountHandlerImpl) SolveCheckpoint(c *gin.Context) {
-	userIDStr, exists := c.Get("user_id")
-	if !exists {
-		c.JSON(http.StatusUnauthorized, gin.H{"error": "User not authenticated"})
-		return
-	}
-
-	userID, ok := userIDStr.(uint)
-	if !ok {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Invalid user ID"})
+	userID, err := h.userIDFromContext(c)
+	if err != nil {
+		RespondError(c, err)
 		return
 	}
 
