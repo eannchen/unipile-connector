@@ -8,6 +8,7 @@ import (
 
 	"unipile-connector/internal/domain/entity"
 	"unipile-connector/internal/domain/repository"
+	"unipile-connector/pkg/postgreserr"
 )
 
 // userRepo implements UserRepository interface
@@ -23,7 +24,7 @@ func NewUserRepository(db *gorm.DB) repository.UserRepository {
 func (r *userRepo) Create(ctx context.Context, user *entity.User) error {
 	err := r.db.WithContext(ctx).Create(user).Error
 	if err != nil {
-		if errors.Is(err, gorm.ErrDuplicatedKey) {
+		if errors.Is(err, gorm.ErrDuplicatedKey) || postgreserr.Is(err, postgreserr.ErrDuplicateKey) {
 			return repository.ErrDuplicateKey
 		}
 		return err
