@@ -22,16 +22,11 @@ func NewUserUsecase(userRepo repository.UserRepository) *UserUsecase {
 }
 
 // CreateUser creates a new user
-func (u *UserUsecase) CreateUser(ctx context.Context, username, email, password string) (*entity.User, error) {
+func (u *UserUsecase) CreateUser(ctx context.Context, username, password string) (*entity.User, error) {
 	// Check if user already exists
 	existingUser, _ := u.userRepo.GetByUsername(ctx, username)
 	if existingUser != nil {
 		return nil, errors.New("username already exists")
-	}
-
-	existingEmail, _ := u.userRepo.GetByEmail(ctx, email)
-	if existingEmail != nil {
-		return nil, errors.New("email already exists")
 	}
 
 	// Hash password
@@ -42,7 +37,6 @@ func (u *UserUsecase) CreateUser(ctx context.Context, username, email, password 
 
 	user := &entity.User{
 		Username: username,
-		Email:    email,
 		Password: string(hashedPassword),
 	}
 
@@ -72,4 +66,3 @@ func (u *UserUsecase) AuthenticateUser(ctx context.Context, username, password s
 func (u *UserUsecase) GetUserByID(ctx context.Context, id uint) (*entity.User, error) {
 	return u.userRepo.GetByID(ctx, id)
 }
-

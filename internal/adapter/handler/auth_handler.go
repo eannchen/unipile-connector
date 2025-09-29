@@ -29,7 +29,6 @@ func NewAuthHandler(userUsecase *user.UserUsecase, jwtService *jwt.JWTService, l
 // RegisterRequest represents user registration request
 type RegisterRequest struct {
 	Username string `json:"username" binding:"required"`
-	Email    string `json:"email" binding:"required,email"`
 	Password string `json:"password" binding:"required,min=6"`
 }
 
@@ -48,7 +47,7 @@ func (h *AuthHandler) Register(c *gin.Context) {
 		return
 	}
 
-	user, err := h.userUsecase.CreateUser(c.Request.Context(), req.Username, req.Email, req.Password)
+	user, err := h.userUsecase.CreateUser(c.Request.Context(), req.Username, req.Password)
 	if err != nil {
 		h.logger.WithError(err).Error("Failed to create user")
 		c.JSON(http.StatusConflict, gin.H{"error": err.Error()})
@@ -61,7 +60,6 @@ func (h *AuthHandler) Register(c *gin.Context) {
 		"user": gin.H{
 			"id":       user.ID,
 			"username": user.Username,
-			"email":    user.Email,
 		},
 	})
 }
@@ -96,7 +94,6 @@ func (h *AuthHandler) Login(c *gin.Context) {
 		"user": gin.H{
 			"id":       user.ID,
 			"username": user.Username,
-			"email":    user.Email,
 		},
 	})
 }
@@ -167,7 +164,6 @@ func (h *AuthHandler) GetCurrentUser(c *gin.Context) {
 		"user": gin.H{
 			"id":       user.ID,
 			"username": user.Username,
-			"email":    user.Email,
 		},
 	})
 }

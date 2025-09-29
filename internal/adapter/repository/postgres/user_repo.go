@@ -40,15 +40,6 @@ func (r *userRepo) GetByUsername(ctx context.Context, username string) (*entity.
 	return &user, nil
 }
 
-func (r *userRepo) GetByEmail(ctx context.Context, email string) (*entity.User, error) {
-	var user entity.User
-	err := r.db.WithContext(ctx).Where("email = ?", email).First(&user).Error
-	if err != nil {
-		return nil, err
-	}
-	return &user, nil
-}
-
 func (r *userRepo) Update(ctx context.Context, user *entity.User) error {
 	return r.db.WithContext(ctx).Save(user).Error
 }
@@ -56,4 +47,3 @@ func (r *userRepo) Update(ctx context.Context, user *entity.User) error {
 func (r *userRepo) Delete(ctx context.Context, id uint) error {
 	return r.db.WithContext(ctx).Delete(&entity.User{}, id).Error
 }
-

@@ -74,7 +74,6 @@ document.addEventListener('DOMContentLoaded', function () {
                     localStorage.setItem('authToken', data.token);
                     localStorage.setItem('userId', data.user.id);
                     localStorage.setItem('username', data.user.username);
-                    localStorage.setItem('userEmail', data.user.email);
 
                     showAlert('Login successful! Redirecting to dashboard...', 'success');
 
@@ -98,7 +97,6 @@ document.addEventListener('DOMContentLoaded', function () {
             e.preventDefault();
 
             const username = document.getElementById('username').value;
-            const email = document.getElementById('email').value;
             const password = document.getElementById('password').value;
             const confirmPassword = document.getElementById('confirmPassword').value;
 
@@ -113,7 +111,7 @@ document.addEventListener('DOMContentLoaded', function () {
                     headers: {
                         'Content-Type': 'application/json',
                     },
-                    body: JSON.stringify({ username, email, password })
+                    body: JSON.stringify({ username, password })
                 });
 
                 const data = await response.json();
@@ -206,7 +204,6 @@ async function logout() {
         localStorage.removeItem('authToken');
         localStorage.removeItem('userId');
         localStorage.removeItem('username');
-        localStorage.removeItem('userEmail');
         currentUser = null;
 
         // Redirect to home page

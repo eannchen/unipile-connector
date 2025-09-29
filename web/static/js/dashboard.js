@@ -64,7 +64,6 @@ async function logout() {
         localStorage.removeItem('authToken');
         localStorage.removeItem('userId');
         localStorage.removeItem('username');
-        localStorage.removeItem('userEmail');
         currentUser = null;
 
         // Show success message briefly before redirect
