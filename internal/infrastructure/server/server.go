@@ -17,8 +17,8 @@ type Server interface {
 	Shutdown(ctx context.Context) error
 }
 
-// ServerImpl holds server dependencies
-type ServerImpl struct {
+// Impl holds server dependencies
+type Impl struct {
 	router      *gin.Engine
 	httpServer  *http.Server
 	middlewares *middleware.Middlewares
@@ -35,7 +35,7 @@ func NewServer(
 	router := gin.Default()
 	router.Use(middlewares.CORSMiddleware)
 
-	server := &ServerImpl{
+	server := &Impl{
 		router:      router,
 		middlewares: middlewares,
 		handlers:    handlers,
@@ -46,7 +46,7 @@ func NewServer(
 }
 
 // setupRoutes configures all routes
-func (s *ServerImpl) setupRoutes() {
+func (s *Impl) setupRoutes() {
 	// Health check
 	s.router.GET("/health", func(c *gin.Context) {
 		c.JSON(http.StatusOK, gin.H{"status": "ok"})
@@ -87,35 +87,35 @@ func (s *ServerImpl) setupRoutes() {
 }
 
 // serveHomePage serves the home page
-func (s *ServerImpl) serveHomePage(c *gin.Context) {
+func (s *Impl) serveHomePage(c *gin.Context) {
 	c.HTML(http.StatusOK, "index.html", gin.H{
 		"title": "Unipile Connector",
 	})
 }
 
 // serveLoginPage serves the login page
-func (s *ServerImpl) serveLoginPage(c *gin.Context) {
+func (s *Impl) serveLoginPage(c *gin.Context) {
 	c.HTML(http.StatusOK, "login.html", gin.H{
 		"title": "Login - Unipile Connector",
 	})
 }
 
 // serveRegisterPage serves the register page
-func (s *ServerImpl) serveRegisterPage(c *gin.Context) {
+func (s *Impl) serveRegisterPage(c *gin.Context) {
 	c.HTML(http.StatusOK, "register.html", gin.H{
 		"title": "Register - Unipile Connector",
 	})
 }
 
 // serveDashboardPage serves the dashboard page
-func (s *ServerImpl) serveDashboardPage(c *gin.Context) {
+func (s *Impl) serveDashboardPage(c *gin.Context) {
 	c.HTML(http.StatusOK, "dashboard.html", gin.H{
 		"title": "Dashboard - Unipile Connector",
 	})
 }
 
 // Run starts the server
-func (s *ServerImpl) Run(addr string) error {
+func (s *Impl) Run(addr string) error {
 	s.httpServer = &http.Server{
 		Addr:         addr,
 		Handler:      s.router,
@@ -127,7 +127,7 @@ func (s *ServerImpl) Run(addr string) error {
 }
 
 // Shutdown gracefully shuts down the server
-func (s *ServerImpl) Shutdown(ctx context.Context) error {
+func (s *Impl) Shutdown(ctx context.Context) error {
 	if s.httpServer == nil {
 		return nil
 	}
