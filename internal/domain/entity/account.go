@@ -9,25 +9,25 @@ import (
 
 // Account represents a linked account for a user
 type Account struct {
-	ID uint `json:"id" gorm:"primaryKey"`
+	ID uint `json:"id"`
 
-	UserID uint `json:"user_id" gorm:"not null"`
+	UserID uint `json:"user_id"`
 	User   User `json:"user" gorm:"foreignKey:UserID"`
 
-	CurrentStatus          string                 `json:"current_status" gorm:"not null"`
+	CurrentStatus          string                 `json:"current_status"`
 	AccountStatusHistories []AccountStatusHistory `json:"account_status_histories" gorm:"foreignKey:AccountID"`
 
-	Provider  string         `json:"provider" gorm:"not null"` // e.g., "linkedin"
-	AccountID string         `json:"account_id" gorm:"not null"`
+	Provider  string         `json:"provider"`   // e.g., "LINKEDIN"
+	AccountID string         `json:"account_id"` // Account ID from Unipile
 	CreatedAt time.Time      `json:"created_at"`
 	UpdatedAt time.Time      `json:"updated_at"`
-	DeletedAt gorm.DeletedAt `json:"-" gorm:"index"`
+	DeletedAt gorm.DeletedAt `json:"-"`
 }
 
 // AccountStatusHistory represents the status history of an account
 type AccountStatusHistory struct {
-	ID        uint `json:"id" gorm:"primaryKey"`
-	AccountID uint `json:"account_id" gorm:"not null"`
+	ID        uint `json:"id"`
+	AccountID uint `json:"account_id"`
 
 	Checkpoint          string          `json:"checkpoint"`
 	CheckpointMetadata  json.RawMessage `json:"checkpoint_metadata"`
@@ -35,9 +35,9 @@ type AccountStatusHistory struct {
 
 	// System status: OK, PENDING
 	// Unipile status: OK, ERROR/STOPPED, CREDENTIALS, CONNECTING, DELETED, CREATION_SUCCESS, RECONNECTED, SYNC_SUCCESS
-	Status string `json:"status" gorm:"not null"`
+	Status string `json:"status"`
 
 	CreatedAt time.Time      `json:"created_at"`
 	UpdatedAt time.Time      `json:"updated_at"`
-	DeletedAt gorm.DeletedAt `json:"-" gorm:"index"`
+	DeletedAt gorm.DeletedAt `json:"-"`
 }
