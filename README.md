@@ -1,6 +1,8 @@
 # LinkedIn Connector with Unipile
 
-A full-stack web application that allows users to connect their LinkedIn accounts using Unipile's native authentication. The application supports both credential-based and cookie-based authentication methods with checkpoint handling.
+A full-stack web demonstration application enables users to connect their LinkedIn accounts with Unipile’s native authentication mechanism. The application supports both credential-based and cookie-based authentication, with proper checkpoint handling.
+
+> The Unipile API trial on the demonstration site (unipile-connector.onrender.com) will conclude on October 4, 2025.
 
 ### Completed
 
