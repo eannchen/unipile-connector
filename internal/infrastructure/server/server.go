@@ -8,6 +8,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/sirupsen/logrus"
 
+	"unipile-connector/config"
 	"unipile-connector/internal/adapter/handler"
 	"unipile-connector/internal/adapter/middleware"
 	"unipile-connector/internal/domain/repository"
@@ -35,6 +36,7 @@ func NewServer(
 	logger *logrus.Logger,
 	jwtSecretKey string,
 	jwtIssuer string,
+	cfg *config.Config,
 ) *Server {
 	// Initialize JWT service
 	jwtService := jwt.NewJWTService(jwtSecretKey, jwtIssuer)
@@ -50,7 +52,7 @@ func NewServer(
 
 	// Setup router
 	router := gin.Default()
-	router.Use(middleware.CORSMiddleware())
+	router.Use(middleware.CORSMiddleware(cfg))
 
 	server := &Server{
 		router:         router,

@@ -67,7 +67,7 @@ func main() {
 	}
 
 	// Initialize server
-	srv := server.NewServer(repos, unipileClient, log, cfg.JWT.SecretKey, cfg.JWT.Issuer)
+	srv := server.NewServer(repos, unipileClient, log, cfg.JWT.SecretKey, cfg.JWT.Issuer, cfg)
 
 	// Start server
 	addr := cfg.Server.Host + ":" + cfg.Server.Port

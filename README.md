@@ -25,7 +25,6 @@ A full-stack web application that allows users to connect their LinkedIn account
 - Corn Job (Remove accounts where checkpoints are expired)
 - Security Enhancements
   - Rate Limiting
-  - CORS
 - Better Error Handling for UX
 - Code Cleanup and Refactoring
 - Testing
