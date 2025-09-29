@@ -2,6 +2,7 @@ package postgres
 
 import (
 	"context"
+	"errors"
 
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
@@ -46,6 +47,9 @@ func (r *accountRepo) GetByUserIDAndAccountIDForUpdate(ctx context.Context, user
 	var account entity.Account
 	err := r.db.WithContext(ctx).Clauses(clause.Locking{Strength: "UPDATE"}).Where("user_id = ? AND account_id = ?", userID, accountID).First(&account).Error
 	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, repository.ErrAccountNotFound
+		}
 		return nil, err
 	}
 	return &account, nil

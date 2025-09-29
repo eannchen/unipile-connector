@@ -41,6 +41,9 @@ func NewUserUsecase(userRepo repository.UserRepository, jwtService service.JWTSe
 func (u *UsecaseImpl) GetUserByID(ctx context.Context, id uint) (*entity.User, error) {
 	user, err := u.userRepo.GetByID(ctx, id)
 	if err != nil {
+		if errors.Is(err, repository.ErrRecordNotFound) {
+			return nil, errs.WrapValidationError(errors.New("user not found"), "User not found")
+		}
 		return nil, errs.WrapInternalError(err, "Failed to get user by ID")
 	}
 	return user, nil
@@ -73,7 +76,10 @@ func (u *UsecaseImpl) CreateUser(ctx context.Context, username, password string)
 func (u *UsecaseImpl) AuthenticateUser(ctx context.Context, username, password string) (*entity.User, string, error) {
 	user, err := u.userRepo.GetByUsername(ctx, username)
 	if err != nil {
-		return nil, "", errs.WrapValidationError(errors.New("invalid credentials"), "Invalid credentials")
+		if errors.Is(err, repository.ErrRecordNotFound) {
+			return nil, "", errs.WrapValidationError(errors.New("invalid credentials"), "Invalid credentials")
+		}
+		return nil, "", errs.WrapInternalError(err, "Failed to authenticate user")
 	}
 
 	err = bcrypt.CompareHashAndPassword([]byte(user.Password), []byte(password))

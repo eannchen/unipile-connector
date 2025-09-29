@@ -134,6 +134,9 @@ func (a *UsecaseImpl) SolveCheckpoint(ctx context.Context, userID uint, req *Sol
 
 		account, err = repos.Account.GetByUserIDAndAccountIDForUpdate(ctx, userID, req.AccountID)
 		if err != nil {
+			if errors.Is(err, repository.ErrAccountNotFound) {
+				return errs.WrapValidationError(errors.New("account not found"), "Account not found")
+			}
 			return errs.WrapInternalError(err, "Failed to get account")
 		}
 		if account.CurrentStatus == "OK" {

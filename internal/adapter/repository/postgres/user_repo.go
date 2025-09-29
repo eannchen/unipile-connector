@@ -35,6 +35,9 @@ func (r *userRepo) GetByID(ctx context.Context, id uint) (*entity.User, error) {
 	var user entity.User
 	err := r.db.WithContext(ctx).First(&user, id).Error
 	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, repository.ErrRecordNotFound
+		}
 		return nil, err
 	}
 	return &user, nil
@@ -44,6 +47,9 @@ func (r *userRepo) GetByUsername(ctx context.Context, username string) (*entity.
 	var user entity.User
 	err := r.db.WithContext(ctx).Where("username = ?", username).First(&user).Error
 	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, repository.ErrRecordNotFound
+		}
 		return nil, err
 	}
 	return &user, nil
