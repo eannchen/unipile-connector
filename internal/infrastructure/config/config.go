@@ -64,33 +64,34 @@ type JWTConfig struct {
 func Load(path string) (*Config, error) {
 	var config Config
 
-	viper.AutomaticEnv()
-	viper.SetConfigType("env")
+	v := viper.New()
+	v.AutomaticEnv()
+	v.SetConfigType("env")
 
 	if path != "" {
 		content, err := os.ReadFile(path)
 		if err != nil {
 			return nil, err
 		}
-		if err := viper.ReadConfig(bytes.NewBuffer(content)); err != nil {
+		if err := v.ReadConfig(bytes.NewBuffer(content)); err != nil {
 			return nil, err
 		}
 	} else {
 		// look for config in the working directory
-		viper.AddConfigPath(".")
-		viper.SetConfigFile(".env")
+		v.AddConfigPath(".")
+		v.SetConfigFile(".env")
 
 		// If a config file is found, read it in.
-		if err := viper.ReadInConfig(); err == nil {
-			fmt.Println("Using config file:", viper.ConfigFileUsed())
+		if err := v.ReadInConfig(); err == nil {
+			fmt.Println("Using config file:", v.ConfigFileUsed())
 		}
 	}
 
-	viper.SetEnvKeyReplacer(strings.NewReplacer(".", "_"))
+	v.SetEnvKeyReplacer(strings.NewReplacer(".", "_"))
 
 	// server
-	config.Server.Host = viper.GetString("server_host")
-	config.Server.Port = viper.GetString("server_port")
+	config.Server.Host = v.GetString("server_host")
+	config.Server.Port = v.GetString("server_port")
 	if len(config.Server.Port) == 0 {
 		config.Server.Port = "8080"
 	}
@@ -99,18 +100,18 @@ func Load(path string) (*Config, error) {
 	}
 
 	// log
-	config.Log.Level = viper.GetString("log_level")
+	config.Log.Level = v.GetString("log_level")
 	if config.Log.Level == "" {
 		config.Log.Level = "warn"
 	}
 
 	// database
-	config.Database.Host = viper.GetString("db_host")
-	config.Database.Port = viper.GetInt("db_port")
-	config.Database.User = viper.GetString("db_user")
-	config.Database.Password = viper.GetString("db_password")
-	config.Database.DBName = viper.GetString("db_name")
-	config.Database.SSLMode = viper.GetString("db_sslmode")
+	config.Database.Host = v.GetString("db_host")
+	config.Database.Port = v.GetInt("db_port")
+	config.Database.User = v.GetString("db_user")
+	config.Database.Password = v.GetString("db_password")
+	config.Database.DBName = v.GetString("db_name")
+	config.Database.SSLMode = v.GetString("db_sslmode")
 	if config.Database.Host == "" {
 		config.Database.Host = "localhost"
 	}
@@ -131,17 +132,17 @@ func Load(path string) (*Config, error) {
 	}
 
 	// unipile
-	config.Unipile.BaseURL = viper.GetString("unipile_base_url")
-	config.Unipile.APIKey = viper.GetString("unipile_api_key")
+	config.Unipile.BaseURL = v.GetString("unipile_base_url")
+	config.Unipile.APIKey = v.GetString("unipile_api_key")
 	if config.Unipile.BaseURL == "" {
 		config.Unipile.BaseURL = "https://api.unipile.com"
 	}
 
 	// redis
-	config.Redis.Host = viper.GetString("redis_host")
-	config.Redis.Port = viper.GetInt("redis_port")
-	config.Redis.Password = viper.GetString("redis_password")
-	config.Redis.DB = viper.GetInt("redis_db")
+	config.Redis.Host = v.GetString("redis_host")
+	config.Redis.Port = v.GetInt("redis_port")
+	config.Redis.Password = v.GetString("redis_password")
+	config.Redis.DB = v.GetInt("redis_db")
 	if config.Redis.Host == "" {
 		config.Redis.Host = "localhost"
 	}
@@ -150,8 +151,8 @@ func Load(path string) (*Config, error) {
 	}
 
 	// jwt
-	config.JWT.SecretKey = viper.GetString("jwt_secret_key")
-	config.JWT.Issuer = viper.GetString("jwt_issuer")
+	config.JWT.SecretKey = v.GetString("jwt_secret_key")
+	config.JWT.Issuer = v.GetString("jwt_issuer")
 
 	return &config, nil
 }

@@ -20,7 +20,7 @@ func Is(err error, code string) bool {
 	if err == nil {
 		return false
 	}
-	if code, err := ParseErrorCode(err); err == nil && code == code {
+	if parsed, parseErr := ParseErrorCode(err); parseErr == nil && parsed == code {
 		return true
 	}
 	return false

@@ -15,4 +15,3 @@ func NewLogger() *logrus.Logger {
 	})
 	return logger
 }
-
