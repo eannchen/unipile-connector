@@ -32,9 +32,13 @@ A full-stack web demonstration application enables users to connect their Linked
   - `IN_APP_VALIDATION`
     - Webhook Integration
     - WebSocket Support (for Real-time frontend updates)
-  - `CAPTCHA`
 - UI/UX Enhancement for multiple accounts verification
 - Frontend Code Cleanup
+
+### Uncertain
+
+Unipile [claims](https://developer.unipile.com/docs/linkedin#handle-captcha) to have a library for handling `CAPTCHA` checkpoints, but there’s no documentation or example code provided.
+
 
 ### Flow for `IN_APP_VALIDATION` Checkpoint
 
