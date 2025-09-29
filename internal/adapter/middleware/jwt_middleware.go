@@ -1,11 +1,13 @@
 package middleware
 
 import (
+	"errors"
 	"net/http"
 	"strings"
 
 	"github.com/gin-gonic/gin"
 
+	"unipile-connector/internal/domain/errs"
 	"unipile-connector/internal/domain/service"
 )
 
@@ -32,31 +34,31 @@ func (m *JWTMiddlewareImpl) AuthMiddleware() gin.HandlerFunc {
 		// Get token from Authorization header
 		authHeader := c.GetHeader("Authorization")
 		if authHeader == "" {
-			c.JSON(http.StatusUnauthorized, gin.H{"error": "Authorization header required"})
-			c.Abort()
+			err := errs.WrapValidationError(errors.New("authorization header required"), "Authorization header required")
+			c.AbortWithStatusJSON(http.StatusUnauthorized, err.(*errs.CodedError))
 			return
 		}
 
 		// Check if header starts with "Bearer "
 		if !strings.HasPrefix(authHeader, "Bearer ") {
-			c.JSON(http.StatusUnauthorized, gin.H{"error": "Invalid authorization header format"})
-			c.Abort()
+			err := errs.WrapValidationError(errors.New("invalid authorization header format"), "Invalid authorization header format")
+			c.AbortWithStatusJSON(http.StatusUnauthorized, err.(*errs.CodedError))
 			return
 		}
 
 		// Extract token
 		tokenString := strings.TrimPrefix(authHeader, "Bearer ")
 		if tokenString == "" {
-			c.JSON(http.StatusUnauthorized, gin.H{"error": "Token required"})
-			c.Abort()
+			err := errs.WrapValidationError(errors.New("token required"), "Token required")
+			c.AbortWithStatusJSON(http.StatusUnauthorized, err.(*errs.CodedError))
 			return
 		}
 
 		// Validate token
 		claims, err := m.jwtService.ValidateToken(tokenString)
 		if err != nil {
-			c.JSON(http.StatusUnauthorized, gin.H{"error": "Invalid or expired token"})
-			c.Abort()
+			err := errs.WrapValidationError(errors.New("invalid or expired token"), "Invalid or expired token")
+			c.AbortWithStatusJSON(http.StatusUnauthorized, err.(*errs.CodedError))
 			return
 		}
 
