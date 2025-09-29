@@ -141,27 +141,61 @@ function displayAccounts(accounts) {
     }
 
     if (accounts && accounts.length > 0) {
-        let html = '<div class="list-group">';
-        accounts.forEach(account => {
-            html += `
-                <div class="list-group-item">
-                    <div class="d-flex w-100 justify-content-between">
-                        <h5 class="mb-1">${account.provider.charAt(0).toUpperCase() + account.provider.slice(1)}</h5>
-                        <small>${new Date(account.created_at).toLocaleDateString()}</small>
+        // Separate accounts by status
+        const connectedAccounts = accounts.filter(acc => acc.current_status === 'OK');
+        const connectingAccounts = accounts.filter(acc => acc.current_status !== 'OK');
+
+        let html = '';
+
+        // Display connected accounts (status = "OK")
+        if (connectedAccounts.length > 0) {
+            html += '<h6 class="text-success mb-3"><i class="fas fa-check-circle"></i> Connected Accounts</h6>';
+            html += '<div class="list-group mb-4">';
+            connectedAccounts.forEach(account => {
+                html += `
+                    <div class="list-group-item list-group-item-success">
+                        <div class="d-flex w-100 justify-content-between">
+                            <h5 class="mb-1">${account.provider.charAt(0).toUpperCase() + account.provider.slice(1)}</h5>
+                            <small>${new Date(account.created_at).toLocaleDateString()}</small>
+                        </div>
+                        <p class="mb-1">Account ID: ${account.account_id}</p>
+                        <button type="button" class="btn btn-outline-danger btn-sm" onclick="disconnectLinkedIn('${account.account_id}')"
+                             id="disconnectBtn">
+                            Disconnect LinkedIn
+                        </button>
                     </div>
-                    <p class="mb-1">Account ID: ${account.account_id}</p>
-                    <button type="button" class="btn btn-outline-danger btn-sm" onclick="disconnectLinkedIn('${account.account_id}')"
-                         id="disconnectBtn">
-                        Disconnect LinkedIn
-                    </button>
-                </div>
-            `;
-        });
-        html += '</div>';
+                `;
+            });
+            html += '</div>';
+        }
+
+        // Display connecting accounts (status != "OK")
+        if (connectingAccounts.length > 0) {
+            html += '<h6 class="text-warning mb-3"><i class="fas fa-clock"></i> Connecting Accounts</h6>';
+            html += '<div class="list-group">';
+            connectingAccounts.forEach(account => {
+                const statusBadge = getStatusBadge(account.current_status);
+                html += `
+                    <div class="list-group-item list-group-item-warning">
+                        <div class="d-flex w-100 justify-content-between">
+                            <h5 class="mb-1">${account.provider.charAt(0).toUpperCase() + account.provider.slice(1)}</h5>
+                            <div>
+                                ${statusBadge}
+                                <small class="ms-2">${new Date(account.created_at).toLocaleDateString()}</small>
+                            </div>
+                        </div>
+                        <p class="mb-1">Account ID: ${account.account_id}</p>
+                        ${getConnectingAccountActions(account)}
+                    </div>
+                `;
+            });
+            html += '</div>';
+        }
+
         accountsList.innerHTML = html;
 
-        // Show disconnect button if LinkedIn account exists
-        const linkedinAccount = accounts.find(acc => acc.provider === 'linkedin');
+        // Show disconnect button if LinkedIn account exists and is connected
+        const linkedinAccount = connectedAccounts.find(acc => acc.provider.toLowerCase() === 'linkedin');
         if (linkedinAccount && disconnectBtn) {
             disconnectBtn.style.display = 'block';
         }
@@ -171,6 +205,47 @@ function displayAccounts(accounts) {
             disconnectBtn.style.display = 'none';
         }
     }
+}
+
+// Get status badge for connecting accounts
+function getStatusBadge(status) {
+    const statusMap = {
+        'PENDING': '<span class="badge bg-warning">Pending</span>',
+        'CONNECTING': '<span class="badge bg-info">Connecting</span>',
+        'ERROR': '<span class="badge bg-danger">Error</span>',
+        'STOPPED': '<span class="badge bg-secondary">Stopped</span>',
+        'CREDENTIALS': '<span class="badge bg-warning">Credentials</span>',
+        'SYNC_SUCCESS': '<span class="badge bg-success">Sync Success</span>',
+        'RECONNECTED': '<span class="badge bg-success">Reconnected</span>'
+    };
+    return statusMap[status] || `<span class="badge bg-secondary">${status}</span>`;
+}
+
+// Get actions for connecting accounts
+function getConnectingAccountActions(account) {
+    if (account.current_status === 'PENDING' && account.account_status_histories && account.account_status_histories.length > 0) {
+        const latestHistory = account.account_status_histories[account.account_status_histories.length - 1];
+        if (latestHistory.checkpoint) {
+            return `
+                <div class="mt-2">
+                    <button type="button" class="btn btn-primary btn-sm" onclick="resumeCheckpoint('${account.account_id}', '${latestHistory.checkpoint}')">
+                        <i class="fas fa-play"></i> Resume Checkpoint
+                    </button>
+                    <button type="button" class="btn btn-outline-danger btn-sm ms-2" onclick="cancelConnection('${account.account_id}')">
+                        <i class="fas fa-times"></i> Cancel
+                    </button>
+                </div>
+            `;
+        }
+    }
+
+    return `
+        <div class="mt-2">
+            <button type="button" class="btn btn-outline-danger btn-sm" onclick="cancelConnection('${account.account_id}')">
+                <i class="fas fa-times"></i> Cancel Connection
+            </button>
+        </div>
+    `;
 }
 
 // Connect LinkedIn account
@@ -552,8 +627,8 @@ async function disconnectLinkedIn(accountId) {
         return;
     }
 
-    // Show loading state
-    const disconnectBtn = document.getElementById('disconnectBtn');
+    // Find the specific disconnect button for this account
+    const disconnectBtn = document.querySelector(`button[onclick="disconnectLinkedIn('${accountId}')"]`);
     let originalText = '';
     if (disconnectBtn) {
         originalText = disconnectBtn.innerHTML;
@@ -586,6 +661,61 @@ async function disconnectLinkedIn(accountId) {
         if (disconnectBtn && originalText) {
             disconnectBtn.innerHTML = originalText;
             disconnectBtn.disabled = false;
+        }
+    }
+}
+
+// Resume checkpoint for a connecting account
+async function resumeCheckpoint(accountId, checkpointType) {
+    currentAccountID = accountId;
+
+    // Show checkpoint section with the stored checkpoint type
+    showCheckpointSection({
+        type: checkpointType
+    }, null);
+
+    showAlert(`Resuming ${checkpointType} checkpoint for account ${accountId}`, 'info');
+}
+
+// Cancel connection for a connecting account
+async function cancelConnection(accountId) {
+    if (!confirm('Are you sure you want to cancel this connection?')) {
+        return;
+    }
+
+    // Find the specific cancel button for this account
+    const cancelBtn = document.querySelector(`button[onclick="cancelConnection('${accountId}')"]`);
+    let originalText = '';
+    if (cancelBtn) {
+        originalText = cancelBtn.innerHTML;
+        cancelBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Cancelling...';
+        cancelBtn.disabled = true;
+    }
+
+    try {
+        const response = await fetch('/api/v1/accounts/linkedin', {
+            method: 'DELETE',
+            headers: getAuthHeaders(),
+            body: JSON.stringify({
+                account_id: accountId
+            })
+        });
+
+        const data = await response.json();
+
+        if (response.ok) {
+            showAlert('Connection cancelled successfully!', 'success');
+            loadUserAccounts();
+        } else {
+            showAlert(data.error || 'Failed to cancel connection', 'danger');
+        }
+    } catch (error) {
+        showAlert('Network error. Please try again.', 'danger');
+    } finally {
+        // Restore button state
+        if (cancelBtn && originalText) {
+            cancelBtn.innerHTML = originalText;
+            cancelBtn.disabled = false;
         }
     }
 }
