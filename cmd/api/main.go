@@ -14,12 +14,12 @@ import (
 	"unipile-connector/config"
 	"unipile-connector/internal/adapter/handler"
 	"unipile-connector/internal/adapter/middleware"
+	"unipile-connector/internal/domain/service"
 	"unipile-connector/internal/infrastructure/client"
 	"unipile-connector/internal/infrastructure/database"
 	"unipile-connector/internal/infrastructure/server"
 	"unipile-connector/internal/usecase/account"
 	"unipile-connector/internal/usecase/user"
-	"unipile-connector/pkg/jwt"
 	"unipile-connector/pkg/logger"
 )
 
@@ -69,7 +69,7 @@ func main() {
 	}
 
 	// Initialize JWT service and middleware
-	jwtService := jwt.NewService(cfg.JWT.SecretKey, cfg.JWT.Issuer)
+	jwtService := service.NewJWTService(cfg.JWT.SecretKey, cfg.JWT.Issuer)
 	jwtMiddleware := middleware.NewJWTMiddleware(jwtService).AuthMiddleware()
 	corsMiddleware := middleware.CORSMiddleware(cfg)
 	middlewares := middleware.NewMiddlewares(corsMiddleware, jwtMiddleware)
