@@ -9,6 +9,9 @@ import (
 	"time"
 
 	"github.com/sirupsen/logrus"
+	"github.com/ulule/limiter/v3"
+	mgin "github.com/ulule/limiter/v3/drivers/middleware/gin"
+	"github.com/ulule/limiter/v3/drivers/store/memory"
 
 	"unipile-connector/internal/adapter/handler"
 	"unipile-connector/internal/adapter/middleware"
@@ -78,7 +81,13 @@ func main() {
 	jwtService := service.NewJWTService(cfg.JWT.SecretKey, cfg.JWT.Issuer)
 	jwtMiddleware := middleware.NewJWTMiddleware(jwtService).AuthMiddleware()
 	corsMiddleware := middleware.CORSMiddleware(cfg.Server.Host)
-	middlewares := middleware.NewMiddlewares(corsMiddleware, jwtMiddleware)
+	rate, err := limiter.NewRateFromFormatted("5-S")
+	if err != nil {
+		log.Fatalf("Failed to create rate: %v", err)
+	}
+	rateLimiter := limiter.New(memory.NewStore(), rate, limiter.WithTrustForwardHeader(true))
+	rateLimitMiddleware := mgin.NewMiddleware(rateLimiter)
+	middlewares := middleware.NewMiddlewares(corsMiddleware, jwtMiddleware, rateLimitMiddleware)
 
 	// Initialize repositories
 	repos := postgres.GetRepositories(db)

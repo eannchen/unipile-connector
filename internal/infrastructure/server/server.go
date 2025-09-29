@@ -33,7 +33,7 @@ func NewServer(
 
 	// Setup router
 	router := gin.Default()
-	router.Use(middlewares.CORSMiddleware)
+	router.Use(middlewares.CORSMiddleware, middlewares.RateLimitMiddleware)
 
 	server := &Impl{
 		router:      router,
