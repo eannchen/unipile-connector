@@ -225,16 +225,29 @@ function getConnectingAccountActions(account) {
     if (account.current_status === 'PENDING' && account.account_status_histories && account.account_status_histories.length > 0) {
         const latestHistory = account.account_status_histories[account.account_status_histories.length - 1];
         if (latestHistory.checkpoint) {
-            return `
-                <div class="mt-2">
-                    <button type="button" class="btn btn-primary btn-sm" onclick="resumeCheckpoint('${account.account_id}', '${latestHistory.checkpoint}')">
-                        <i class="fas fa-play"></i> Resume Checkpoint
-                    </button>
-                    <button type="button" class="btn btn-outline-danger btn-sm ms-2" onclick="cancelConnection('${account.account_id}')">
-                        <i class="fas fa-times"></i> Cancel
-                    </button>
-                </div>
-            `;
+            if (latestHistory.checkpoint === 'IN_APP_VALIDATION') {
+                return `
+                    <div class="mt-2">
+                        <button type="button" class="btn btn-primary btn-sm" onclick="resumeInAppValidation('${account.account_id}', '${latestHistory.checkpoint_expires_at}')">
+                            <i class="fas fa-mobile-alt"></i> Resume App Validation
+                        </button>
+                        <button type="button" class="btn btn-outline-danger btn-sm ms-2" onclick="cancelConnection('${account.account_id}')">
+                            <i class="fas fa-times"></i> Cancel
+                        </button>
+                    </div>
+                `;
+            } else {
+                return `
+                    <div class="mt-2">
+                        <button type="button" class="btn btn-primary btn-sm" onclick="resumeCheckpoint('${account.account_id}', '${latestHistory.checkpoint}')">
+                            <i class="fas fa-play"></i> Resume Checkpoint
+                        </button>
+                        <button type="button" class="btn btn-outline-danger btn-sm ms-2" onclick="cancelConnection('${account.account_id}')">
+                            <i class="fas fa-times"></i> Cancel
+                        </button>
+                    </div>
+                `;
+            }
         }
     }
 
@@ -368,12 +381,13 @@ function showCheckpointSection(checkpoint, expiresAt) {
         case 'IN_APP_VALIDATION':
             checkpointAlert.innerHTML = `
                 <strong>LinkedIn App Verification Required</strong><br>
-                Please check your LinkedIn mobile app and confirm the connection.
+                Please check your LinkedIn mobile app and confirm the connection. We'll wait for your confirmation automatically.
             `;
-            checkpointLabel.textContent = 'Confirmation Code (if any)';
-            checkpointCodeInput.placeholder = 'Enter confirmation code if prompted';
+            checkpointLabel.textContent = 'Waiting for confirmation...';
+            checkpointCodeInput.placeholder = 'Waiting for app confirmation...';
             checkpointCodeInput.maxLength = 10;
             checkpointCodeInput.type = 'text';
+            checkpointCodeInput.disabled = true;
             break;
         case 'CAPTCHA':
             checkpointAlert.innerHTML = `
@@ -420,17 +434,30 @@ function showCheckpointSection(checkpoint, expiresAt) {
     checkpointSection.style.display = 'block';
     checkpointCodeInput.value = ''; // Clear previous input
 
-    // Add keyboard support
-    checkpointCodeInput.addEventListener('keypress', function (e) {
-        if (e.key === 'Enter') {
-            solveCheckpoint();
+    // Handle IN_APP_VALIDATION with automatic long polling
+    if (checkpoint.type === 'IN_APP_VALIDATION') {
+        // Disable the submit button and show waiting state
+        const submitBtn = document.querySelector('button[onclick="solveCheckpoint()"]');
+        if (submitBtn) {
+            submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Waiting for confirmation...';
+            submitBtn.disabled = true;
         }
-    });
 
-    // Focus on input
-    setTimeout(() => {
-        checkpointCodeInput.focus();
-    }, 300);
+        // Start long polling for IN_APP_VALIDATION
+        startInAppValidationPolling(expiresAt);
+    } else {
+        // Add keyboard support for other checkpoint types
+        checkpointCodeInput.addEventListener('keypress', function (e) {
+            if (e.key === 'Enter') {
+                solveCheckpoint();
+            }
+        });
+
+        // Focus on input for non-IN_APP_VALIDATION checkpoints
+        setTimeout(() => {
+            checkpointCodeInput.focus();
+        }, 300);
+    }
 
     // Scroll to checkpoint section
     checkpointSection.scrollIntoView({ behavior: 'smooth' });
@@ -463,6 +490,78 @@ function startExpirationTimer(timeLeft) {
             document.querySelector('button[onclick="solveCheckpoint()"]').disabled = true;
         }
     }, 1000);
+}
+
+// Start long polling for IN_APP_VALIDATION checkpoint
+async function startInAppValidationPolling(expiresAt) {
+    if (!currentAccountID) {
+        showAlert('No account ID available for validation', 'danger');
+        return;
+    }
+
+    // Calculate timeout based on checkpoint expiration
+    let timeoutSeconds = 300; // Default 5 minutes
+
+    if (expiresAt) {
+        const checkpointExpiresAt = new Date(expiresAt);
+        const now = new Date();
+        const remainingTime = Math.max(0, checkpointExpiresAt - now);
+        const bufferTime = 30 * 1000; // 30 seconds buffer
+        timeoutSeconds = Math.min(300, Math.max(1, Math.floor((remainingTime + bufferTime) / 1000)));
+    }
+
+    console.log(`Starting IN_APP_VALIDATION polling with timeout: ${timeoutSeconds} seconds`);
+
+    try {
+        const response = await fetch('/api/v1/accounts/linkedin/wait-validation', {
+            method: 'POST',
+            headers: getAuthHeaders(),
+            body: JSON.stringify({
+                account_id: currentAccountID,
+                timeout: timeoutSeconds
+            })
+        });
+
+        const data = await response.json();
+
+        if (response.ok) {
+            // Validation successful
+            showAlert('LinkedIn account validated successfully!', 'success');
+            hideCheckpointSection();
+            loadUserAccounts();
+        } else {
+            // Handle different error scenarios
+            if (response.status === 400) {
+                if (data.detail && data.detail.includes('expired')) {
+                    showAlert('Validation session expired. Please try connecting again.', 'danger');
+                } else if (data.detail && data.detail.includes('not found')) {
+                    showAlert('Account not found or not in validation state. Please try connecting again.', 'danger');
+                } else {
+                    showAlert(data.detail || 'Validation failed. Please try connecting again.', 'danger');
+                }
+            } else if (response.status === 401) {
+                showAlert('Session expired. Please login again.', 'danger');
+                setTimeout(() => {
+                    window.location.href = '/login';
+                }, 2000);
+            } else {
+                showAlert(data.detail || 'Validation failed. Please try connecting again.', 'danger');
+            }
+
+            hideCheckpointSection();
+        }
+    } catch (error) {
+        console.error('IN_APP_VALIDATION polling error:', error);
+
+        // Handle network errors
+        if (error.name === 'AbortError') {
+            showAlert('Validation request timed out. Please check your LinkedIn app and try again.', 'warning');
+        } else {
+            showAlert('Network error during validation. Please try connecting again.', 'danger');
+        }
+
+        hideCheckpointSection();
+    }
 }
 
 // Validate checkpoint input based on type
@@ -597,6 +696,15 @@ function cancelCheckpoint() {
     currentAccountID = null;
 }
 
+// Clear checkpoint code input
+function clearCheckpointCode() {
+    const checkpointCode = document.getElementById('checkpointCode');
+    if (checkpointCode) {
+        checkpointCode.value = '';
+        checkpointCode.focus();
+    }
+}
+
 // Hide checkpoint section
 function hideCheckpointSection() {
     const checkpointSection = document.getElementById('checkpointSection');
@@ -613,11 +721,25 @@ function hideCheckpointSection() {
     checkpointSection.style.display = 'none';
     checkpointCode.value = '';
     checkpointCode.disabled = false;
-    submitBtn.disabled = false;
+    checkpointCode.type = 'text';
+    checkpointCode.maxLength = 10;
+    checkpointCode.placeholder = 'Enter verification code';
+
+    // Reset submit button
+    if (submitBtn) {
+        submitBtn.innerHTML = '<i class="fas fa-check"></i> Submit Code';
+        submitBtn.disabled = false;
+    }
 
     // Reset checkpoint alert to default
     const checkpointAlert = document.getElementById('checkpointAlert');
     checkpointAlert.innerHTML = '<strong>Checkpoint Required:</strong> <span id="checkpointType"></span>';
+
+    // Reset label
+    const checkpointLabel = document.querySelector('label[for="checkpointCode"]');
+    if (checkpointLabel) {
+        checkpointLabel.textContent = 'Verification Code';
+    }
 }
 
 // Disconnect LinkedIn account
@@ -674,6 +796,18 @@ async function resumeCheckpoint(accountId, checkpointType) {
     }, null);
 
     showAlert(`Resuming ${checkpointType} checkpoint for account ${accountId}`, 'info');
+}
+
+// Resume IN_APP_VALIDATION for a connecting account
+async function resumeInAppValidation(accountId, expiresAt) {
+    currentAccountID = accountId;
+
+    // Show checkpoint section with IN_APP_VALIDATION type
+    showCheckpointSection({
+        type: 'IN_APP_VALIDATION'
+    }, expiresAt);
+
+    showAlert(`Resuming LinkedIn app validation for account ${accountId}`, 'info');
 }
 
 // Cancel connection for a connecting account
