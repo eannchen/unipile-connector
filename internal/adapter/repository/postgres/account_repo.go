@@ -28,7 +28,10 @@ func (r *accountRepo) Create(ctx context.Context, account *entity.Account) error
 
 func (r *accountRepo) GetByUserID(ctx context.Context, userID uint) ([]*entity.Account, error) {
 	var accounts []*entity.Account
-	err := r.db.WithContext(ctx).Where("user_id = ?", userID).Find(&accounts).Error
+	err := r.db.WithContext(ctx).
+		Preload("AccountStatusHistories").
+		Where("user_id = ?", userID).
+		Find(&accounts).Error
 	if err != nil {
 		return nil, err
 	}
@@ -37,7 +40,10 @@ func (r *accountRepo) GetByUserID(ctx context.Context, userID uint) ([]*entity.A
 
 func (r *accountRepo) GetByUserIDAndAccountIDForUpdate(ctx context.Context, userID uint, accountID string) (*entity.Account, error) {
 	var account entity.Account
-	err := r.db.WithContext(ctx).Clauses(clause.Locking{Strength: "UPDATE"}).Where("user_id = ? AND account_id = ?", userID, accountID).First(&account).Error
+	err := r.db.WithContext(ctx).Clauses(clause.Locking{Strength: "UPDATE"}).
+		Preload("AccountStatusHistories").
+		Where("user_id = ? AND account_id = ?", userID, accountID).
+		First(&account).Error
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return nil, repository.ErrAccountNotFound
@@ -50,7 +56,6 @@ func (r *accountRepo) GetByUserIDAndAccountIDForUpdate(ctx context.Context, user
 func (r *accountRepo) GetWithStatus(ctx context.Context, userID uint, accountID, checkpoint string) (*entity.AccountWithStatus, error) {
 	var accountWithStatus entity.AccountWithStatus
 	err := r.db.WithContext(ctx).
-		Debug().
 		Select("accounts.*, ash.status as current_status, ash.checkpoint, ash.checkpoint_expires_at").
 		Table("accounts").
 		Joins(`INNER JOIN (
