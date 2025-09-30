@@ -15,6 +15,7 @@ A full-stack web demonstration application enables users to connect their Linked
 - Checkpoint Handling
   - `2FA/OTP`
   - `PHONE_REGISTER`
+  - `IN_APP_VALIDATION` (Long polling approach)
 - Migrations
 - Error Handling
 - Security Enhancements
@@ -29,10 +30,10 @@ A full-stack web demonstration application enables users to connect their Linked
 ### Incomplete
 
 - Checkpoint Handling
-  - `IN_APP_VALIDATION`
+  - `IN_APP_VALIDATION` (Webhook approach)
     - Webhook Integration
     - WebSocket Support (for Real-time frontend updates)
-- UI/UX Enhancement for multiple connecting accounts verification
+- UI/UX Enhancement (Showing expiration time for checkpoints)
 - Frontend Code Cleanup
 
 ### Uncertain
@@ -40,7 +41,7 @@ A full-stack web demonstration application enables users to connect their Linked
 Unipile [claims](https://developer.unipile.com/docs/linkedin#handle-captcha) to have a library for handling `CAPTCHA` checkpoints, but there’s no documentation or example code provided.
 
 
-### Flow for `IN_APP_VALIDATION` Checkpoint
+### Webhook Flow for `IN_APP_VALIDATION` Checkpoint
 
 #### Initiate Connection
 1. User initiates LinkedIn connection → Backend calls Unipile API
