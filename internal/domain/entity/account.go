@@ -41,3 +41,11 @@ type AccountStatusHistory struct {
 	UpdatedAt time.Time      `json:"updated_at"`
 	DeletedAt gorm.DeletedAt `json:"-"`
 }
+
+// AccountWithStatus represents an account with its current status
+type AccountWithStatus struct {
+	Account
+	CurrentStatus       string    `json:"current_status"`
+	Checkpoint          string    `json:"checkpoint"`
+	CheckpointExpiresAt time.Time `json:"checkpoint_expires_at"`
+}

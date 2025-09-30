@@ -96,16 +96,61 @@ func (c *UnipileClientImpl) GetAccount(accountID string) (*service.Account, erro
 		return nil, fmt.Errorf("failed to read response: %w", err)
 	}
 
-	if resp.StatusCode != http.StatusOK {
+	switch resp.StatusCode {
+	case http.StatusOK:
+		var response service.Account
+		if err := json.Unmarshal(body, &response); err != nil {
+			return nil, fmt.Errorf("failed to unmarshal response: %w", err)
+		}
+		return &response, nil
+	case http.StatusNotFound:
+		return nil, service.ErrUnipileAccountNotFound
+	default:
 		return nil, fmt.Errorf("unipile API error (status %d): %s", resp.StatusCode, string(body))
 	}
+}
 
-	var response service.Account
-	if err := json.Unmarshal(body, &response); err != nil {
-		return nil, fmt.Errorf("failed to unmarshal response: %w", err)
+// GetAccountWithLongPolling gets the status of a LinkedIn account with long polling
+// This method will wait until the account status changes to "OK" or timeout occurs
+func (c *UnipileClientImpl) GetAccountWithLongPolling(accountID string, timeout time.Duration) (*service.Account, error) {
+	url := fmt.Sprintf("%s/api/v1/accounts/%s", c.baseURL, accountID)
+
+	// Create a client with longer timeout for long polling
+	longPollClient := &http.Client{
+		Timeout: timeout,
 	}
 
-	return &response, nil
+	httpReq, err := http.NewRequest("GET", url, nil)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create request: %w", err)
+	}
+
+	httpReq.Header.Set("X-API-KEY", c.apiKey)
+	httpReq.Header.Set("accept", "application/json")
+
+	resp, err := longPollClient.Do(httpReq)
+	if err != nil {
+		return nil, fmt.Errorf("failed to make request: %w", err)
+	}
+	defer resp.Body.Close()
+
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read response: %w", err)
+	}
+
+	switch resp.StatusCode {
+	case http.StatusOK:
+		var response service.Account
+		if err := json.Unmarshal(body, &response); err != nil {
+			return nil, fmt.Errorf("failed to unmarshal response: %w", err)
+		}
+		return &response, nil
+	case http.StatusNotFound:
+		return nil, service.ErrUnipileAccountNotFound
+	default:
+		return nil, fmt.Errorf("unipile API error (status %d): %s", resp.StatusCode, string(body))
+	}
 }
 
 // DeleteAccount deletes an account from Unipile API

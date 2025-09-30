@@ -81,6 +81,7 @@ func (s *Impl) setupRoutes() {
 			protected.GET("/accounts", s.handlers.AccountHandler.ListUserAccounts)
 			protected.POST("/accounts/linkedin/connect", s.handlers.AccountHandler.ConnectLinkedIn)
 			protected.POST("/accounts/linkedin/checkpoint", s.handlers.AccountHandler.SolveCheckpoint)
+			protected.POST("/accounts/linkedin/wait-validation", s.handlers.AccountHandler.WaitForAccountValidation)
 			protected.DELETE("/accounts/linkedin", s.handlers.AccountHandler.DisconnectLinkedIn)
 		}
 	}

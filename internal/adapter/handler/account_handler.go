@@ -3,6 +3,7 @@ package handler
 import (
 	"errors"
 	"net/http"
+	"time"
 
 	"github.com/gin-gonic/gin"
 
@@ -16,6 +17,7 @@ type AccountHandler interface {
 	DisconnectLinkedIn(c *gin.Context)
 	ConnectLinkedIn(c *gin.Context)
 	SolveCheckpoint(c *gin.Context)
+	WaitForAccountValidation(c *gin.Context)
 }
 
 // AccountHandlerImpl handles account-related requests
@@ -185,6 +187,37 @@ func (h *AccountHandlerImpl) SolveCheckpoint(c *gin.Context) {
 	}
 
 	RespondSuccess(c, http.StatusOK, "LinkedIn checkpoint solved successfully", gin.H{
+		"account": entityAccount,
+	})
+}
+
+// WaitForAccountValidationRequest represents request to wait for account validation
+type WaitForAccountValidationRequest struct {
+	AccountID string `json:"account_id" binding:"required"`
+	Timeout   int    `json:"timeout" binding:"required"`
+}
+
+// WaitForAccountValidation handles LinkedIn account validation
+func (h *AccountHandlerImpl) WaitForAccountValidation(c *gin.Context) {
+	userID, err := h.userIDFromContext(c)
+	if err != nil {
+		RespondError(c, err)
+		return
+	}
+
+	var req WaitForAccountValidationRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		RespondError(c, errs.WrapValidationError(err, "Invalid request data"))
+		return
+	}
+
+	entityAccount, err := h.accountUsecase.WaitForAccountValidation(c.Request.Context(), userID, req.AccountID, time.Duration(req.Timeout)*time.Second)
+	if err != nil {
+		RespondError(c, err)
+		return
+	}
+
+	RespondSuccess(c, http.StatusOK, "LinkedIn account validated successfully", gin.H{
 		"account": entityAccount,
 	})
 }

@@ -19,6 +19,7 @@ type mockAccountRepo struct {
 	createFunc                       func(ctx context.Context, account *entity.Account) error
 	getByUserIDFunc                  func(ctx context.Context, userID uint) ([]*entity.Account, error)
 	getByUserIDAndAccountIDForUpdate func(ctx context.Context, userID uint, accountID string) (*entity.Account, error)
+	getWithStatusFunc                func(ctx context.Context, userID uint, accountID, checkpoint string) (*entity.AccountWithStatus, error)
 	updateFunc                       func(ctx context.Context, account *entity.Account) error
 	deleteByUserIDAndAccountIDFunc   func(ctx context.Context, userID uint, accountID string) error
 }
@@ -40,6 +41,13 @@ func (m *mockAccountRepo) GetByUserID(ctx context.Context, userID uint) ([]*enti
 func (m *mockAccountRepo) GetByUserIDAndAccountIDForUpdate(ctx context.Context, userID uint, accountID string) (*entity.Account, error) {
 	if m.getByUserIDAndAccountIDForUpdate != nil {
 		return m.getByUserIDAndAccountIDForUpdate(ctx, userID, accountID)
+	}
+	return nil, nil
+}
+
+func (m *mockAccountRepo) GetWithStatus(ctx context.Context, userID uint, accountID, checkpoint string) (*entity.AccountWithStatus, error) {
+	if m.getWithStatusFunc != nil {
+		return m.getWithStatusFunc(ctx, userID, accountID, checkpoint)
 	}
 	return nil, nil
 }
@@ -70,12 +78,13 @@ func (m *mockTxRepo) Do(ctx context.Context, fn func(*repository.Repositories) e
 }
 
 type mockUnipileClient struct {
-	listAccountsFunc    func() (*service.AccountListResponse, error)
-	testConnectionFunc  func() error
-	getAccountFunc      func(accountID string) (*service.Account, error)
-	deleteAccountFunc   func(accountID string) error
-	connectLinkedInFunc func(req *service.ConnectLinkedInRequest) (*service.ConnectLinkedInResponse, error)
-	solveCheckpointFunc func(req *service.SolveCheckpointRequest) (*service.SolveCheckpointResponse, error)
+	listAccountsFunc              func() (*service.AccountListResponse, error)
+	testConnectionFunc            func() error
+	getAccountFunc                func(accountID string) (*service.Account, error)
+	getAccountWithLongPollingFunc func(accountID string, timeout time.Duration) (*service.Account, error)
+	deleteAccountFunc             func(accountID string) error
+	connectLinkedInFunc           func(req *service.ConnectLinkedInRequest) (*service.ConnectLinkedInResponse, error)
+	solveCheckpointFunc           func(req *service.SolveCheckpointRequest) (*service.SolveCheckpointResponse, error)
 }
 
 func (m *mockUnipileClient) ListAccounts() (*service.AccountListResponse, error) {
@@ -95,6 +104,13 @@ func (m *mockUnipileClient) TestConnection() error {
 func (m *mockUnipileClient) GetAccount(accountID string) (*service.Account, error) {
 	if m.getAccountFunc != nil {
 		return m.getAccountFunc(accountID)
+	}
+	return nil, nil
+}
+
+func (m *mockUnipileClient) GetAccountWithLongPolling(accountID string, timeout time.Duration) (*service.Account, error) {
+	if m.getAccountWithLongPollingFunc != nil {
+		return m.getAccountWithLongPollingFunc(accountID, timeout)
 	}
 	return nil, nil
 }
@@ -518,5 +534,164 @@ func TestListUserAccounts(t *testing.T) {
 
 	if len(accounts) != len(expected) {
 		t.Fatalf("expected %d accounts, got %d", len(expected), len(accounts))
+	}
+}
+
+func TestWaitForAccountValidation_Success(t *testing.T) {
+	ctx := context.Background()
+	accountWithStatus := &entity.AccountWithStatus{
+		Account: entity.Account{
+			UserID:        1,
+			AccountID:     "acc-123",
+			Provider:      "LINKEDIN",
+			CurrentStatus: "PENDING",
+		},
+		CurrentStatus:       "PENDING",
+		Checkpoint:          "IN_APP_VALIDATION",
+		CheckpointExpiresAt: time.Now().Add(5 * time.Minute),
+	}
+	var updatedAccount *entity.Account
+
+	accountRepo := &mockAccountRepo{
+		getWithStatusFunc: func(_ context.Context, userID uint, accountID, checkpoint string) (*entity.AccountWithStatus, error) {
+			if userID != 1 || accountID != "acc-123" || checkpoint != "IN_APP_VALIDATION" {
+				t.Fatalf("unexpected lookup params userID=%d accountID=%s checkpoint=%s", userID, accountID, checkpoint)
+			}
+			return accountWithStatus, nil
+		},
+		updateFunc: func(_ context.Context, account *entity.Account) error {
+			updatedAccount = account
+			return nil
+		},
+	}
+
+	unipileClient := &mockUnipileClient{
+		getAccountWithLongPollingFunc: func(accountID string, timeout time.Duration) (*service.Account, error) {
+			if accountID != "acc-123" {
+				t.Fatalf("unexpected account ID %s", accountID)
+			}
+			if timeout != 300*time.Second {
+				t.Fatalf("unexpected timeout %v", timeout)
+			}
+			return &service.Account{
+				Sources: []service.AccountSource{
+					{Status: "OK"},
+				},
+			}, nil
+		},
+	}
+
+	uc := NewAccountUsecase(&mockTxRepo{}, accountRepo, unipileClient, logrus.New())
+
+	account, err := uc.WaitForAccountValidation(ctx, 1, "acc-123", 300*time.Second)
+	if err != nil {
+		t.Fatalf("WaitForAccountValidation returned error: %v", err)
+	}
+
+	if updatedAccount == nil {
+		t.Fatalf("expected account update to be called")
+	}
+
+	if account.CurrentStatus != "OK" {
+		t.Fatalf("expected account status OK, got %s", account.CurrentStatus)
+	}
+}
+
+func TestWaitForAccountValidation_AccountNotFound(t *testing.T) {
+	ctx := context.Background()
+
+	accountRepo := &mockAccountRepo{
+		getWithStatusFunc: func(_ context.Context, userID uint, accountID, checkpoint string) (*entity.AccountWithStatus, error) {
+			return nil, repository.ErrAccountNotFound
+		},
+	}
+
+	uc := NewAccountUsecase(&mockTxRepo{}, accountRepo, &mockUnipileClient{}, logrus.New())
+
+	_, err := uc.WaitForAccountValidation(ctx, 1, "missing", 300*time.Second)
+	if err == nil {
+		t.Fatalf("expected error but got nil")
+	}
+
+	var codedErr *errs.CodedError
+	if !errors.As(err, &codedErr) {
+		t.Fatalf("expected coded error, got %v", err)
+	}
+
+	if codedErr.Kind != errs.ValidationErrorKind {
+		t.Fatalf("expected validation error kind, got %s", codedErr.Kind)
+	}
+}
+
+func TestWaitForAccountValidation_AlreadyOK(t *testing.T) {
+	ctx := context.Background()
+	accountWithStatus := &entity.AccountWithStatus{
+		Account: entity.Account{
+			UserID:        1,
+			AccountID:     "acc-123",
+			Provider:      "LINKEDIN",
+			CurrentStatus: "OK",
+		},
+		CurrentStatus: "OK",
+	}
+
+	accountRepo := &mockAccountRepo{
+		getWithStatusFunc: func(_ context.Context, userID uint, accountID, checkpoint string) (*entity.AccountWithStatus, error) {
+			return accountWithStatus, nil
+		},
+	}
+
+	uc := NewAccountUsecase(&mockTxRepo{}, accountRepo, &mockUnipileClient{}, logrus.New())
+
+	account, err := uc.WaitForAccountValidation(ctx, 1, "acc-123", 300*time.Second)
+	if err != nil {
+		t.Fatalf("WaitForAccountValidation returned error: %v", err)
+	}
+
+	if account.CurrentStatus != "OK" {
+		t.Fatalf("expected account status OK, got %s", account.CurrentStatus)
+	}
+}
+
+func TestWaitForAccountValidation_UnipileAccountNotFound(t *testing.T) {
+	ctx := context.Background()
+	accountWithStatus := &entity.AccountWithStatus{
+		Account: entity.Account{
+			UserID:        1,
+			AccountID:     "acc-123",
+			Provider:      "LINKEDIN",
+			CurrentStatus: "PENDING",
+		},
+		CurrentStatus:       "PENDING",
+		Checkpoint:          "IN_APP_VALIDATION",
+		CheckpointExpiresAt: time.Now().Add(5 * time.Minute),
+	}
+
+	accountRepo := &mockAccountRepo{
+		getWithStatusFunc: func(_ context.Context, userID uint, accountID, checkpoint string) (*entity.AccountWithStatus, error) {
+			return accountWithStatus, nil
+		},
+	}
+
+	unipileClient := &mockUnipileClient{
+		getAccountWithLongPollingFunc: func(accountID string, timeout time.Duration) (*service.Account, error) {
+			return nil, service.ErrUnipileAccountNotFound
+		},
+	}
+
+	uc := NewAccountUsecase(&mockTxRepo{}, accountRepo, unipileClient, logrus.New())
+
+	_, err := uc.WaitForAccountValidation(ctx, 1, "acc-123", 300*time.Second)
+	if err == nil {
+		t.Fatalf("expected error but got nil")
+	}
+
+	var codedErr *errs.CodedError
+	if !errors.As(err, &codedErr) {
+		t.Fatalf("expected coded error, got %v", err)
+	}
+
+	if codedErr.Kind != errs.ValidationErrorKind {
+		t.Fatalf("expected validation error kind, got %s", codedErr.Kind)
 	}
 }

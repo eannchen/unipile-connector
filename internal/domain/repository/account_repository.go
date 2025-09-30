@@ -12,6 +12,7 @@ type AccountRepository interface {
 	Create(ctx context.Context, account *entity.Account) error
 	GetByUserID(ctx context.Context, userID uint) ([]*entity.Account, error)
 	GetByUserIDAndAccountIDForUpdate(ctx context.Context, userID uint, accountID string) (*entity.Account, error)
+	GetWithStatus(ctx context.Context, userID uint, accountID, checkpoint string) (*entity.AccountWithStatus, error)
 	Update(ctx context.Context, account *entity.Account) error
 	DeleteByUserIDAndAccountID(ctx context.Context, userID uint, accountID string) error
 }

@@ -1,12 +1,16 @@
 package service
 
-import "errors"
+import (
+	"errors"
+	"time"
+)
 
 // UnipileClient handles communication with Unipile API
 type UnipileClient interface {
 	ListAccounts() (*AccountListResponse, error)
 	TestConnection() error
 	GetAccount(accountID string) (*Account, error)
+	GetAccountWithLongPolling(accountID string, timeout time.Duration) (*Account, error)
 	DeleteAccount(accountID string) error
 	ConnectLinkedIn(req *ConnectLinkedInRequest) (*ConnectLinkedInResponse, error)
 	SolveCheckpoint(req *SolveCheckpointRequest) (*SolveCheckpointResponse, error)

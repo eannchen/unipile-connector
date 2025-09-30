@@ -20,6 +20,7 @@ type Usecase interface {
 	DisconnectLinkedIn(ctx context.Context, userID uint, accountID string) error
 	ConnectLinkedInAccount(ctx context.Context, userID uint, req *ConnectLinkedInRequest) (*entity.Account, error)
 	SolveCheckpoint(ctx context.Context, userID uint, req *SolveCheckpointRequest) (*entity.Account, error)
+	WaitForAccountValidation(ctx context.Context, userID uint, accountID string, timeout time.Duration) (*entity.Account, error)
 }
 
 // UsecaseImpl handles account business logic
@@ -115,7 +116,7 @@ func (a *UsecaseImpl) ConnectLinkedInAccount(ctx context.Context, userID uint, r
 		return nil, errs.WrapInternalError(err, "Failed to create account")
 	}
 
-	return account, err
+	return account, nil
 }
 
 // SolveCheckpointRequest represents request to solve a checkpoint
@@ -165,4 +166,61 @@ func (a *UsecaseImpl) SolveCheckpoint(ctx context.Context, userID uint, req *Sol
 	}
 
 	return account, nil
+}
+
+// WaitForAccountValidation waits for IN_APP_VALIDATION checkpoint to be resolved using long polling
+func (a *UsecaseImpl) WaitForAccountValidation(ctx context.Context, userID uint, accountID string, timeout time.Duration) (*entity.Account, error) {
+	accountWithStatus, err := a.accountRepo.GetWithStatus(ctx, userID, accountID, "IN_APP_VALIDATION")
+	if err != nil {
+		if errors.Is(err, repository.ErrAccountNotFound) {
+			return nil, errs.WrapValidationError(errors.New("account not found, expired, or not in IN_APP_VALIDATION state"), "Account not found, expired, or not in IN_APP_VALIDATION state")
+		}
+		return nil, errs.WrapInternalError(err, "Failed to get account")
+	}
+	if accountWithStatus.CurrentStatus == "OK" {
+		return &accountWithStatus.Account, nil
+	}
+
+	// Use timeout provided by frontend (similar to Unipile API timeout)
+	pollTimeout := timeout
+	if pollTimeout <= 0 {
+		pollTimeout = 5 * time.Minute // Default fallback
+	}
+
+	logFields := logrus.Fields{
+		"userID":    userID,
+		"accountID": accountID,
+		"timeout":   pollTimeout,
+	}
+	a.logger.WithFields(logFields).Info("Starting long polling for IN_APP_VALIDATION")
+
+	// Use long polling to wait for account status change
+	unipileAccount, err := a.unipileClient.GetAccountWithLongPolling(accountID, pollTimeout)
+	if err != nil {
+		a.logger.WithError(err).WithFields(logFields).Error("Long polling failed")
+		if errors.Is(err, service.ErrUnipileAccountNotFound) {
+			return nil, errs.WrapValidationError(errors.New("account not found"), "Account not found")
+		}
+		return nil, errs.WrapInternalError(err, "Failed to check account status")
+	}
+
+	// Check if any source has status "OK"
+	accountStatusOK := false
+	for _, source := range unipileAccount.Sources {
+		if source.Status == "OK" {
+			accountStatusOK = true
+			break
+		}
+	}
+	if !accountStatusOK {
+		return nil, errs.WrapValidationError(errors.New("account validation failed"), "Account validation failed")
+	}
+
+	account := accountWithStatus.Account
+	account.CurrentStatus = "OK"
+	if err := a.accountRepo.Update(ctx, &account); err != nil {
+		return nil, errs.WrapInternalError(err, "Failed to update account status")
+	}
+
+	return &account, nil
 }

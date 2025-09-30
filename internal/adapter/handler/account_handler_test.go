@@ -4,9 +4,11 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"net/http"
 	"net/http/httptest"
 	"testing"
+	"time"
 
 	"github.com/gin-gonic/gin"
 
@@ -16,10 +18,11 @@ import (
 )
 
 type accountUsecaseMock struct {
-	listUserAccountsFn   func(ctx context.Context, userID uint) ([]*entity.Account, error)
-	disconnectLinkedInFn func(ctx context.Context, userID uint, accountID string) error
-	connectLinkedInFn    func(ctx context.Context, userID uint, req *accountusecase.ConnectLinkedInRequest) (*entity.Account, error)
-	solveCheckpointFn    func(ctx context.Context, userID uint, req *accountusecase.SolveCheckpointRequest) (*entity.Account, error)
+	listUserAccountsFn         func(ctx context.Context, userID uint) ([]*entity.Account, error)
+	disconnectLinkedInFn       func(ctx context.Context, userID uint, accountID string) error
+	connectLinkedInFn          func(ctx context.Context, userID uint, req *accountusecase.ConnectLinkedInRequest) (*entity.Account, error)
+	solveCheckpointFn          func(ctx context.Context, userID uint, req *accountusecase.SolveCheckpointRequest) (*entity.Account, error)
+	waitForAccountValidationFn func(ctx context.Context, userID uint, accountID string, timeout time.Duration) (*entity.Account, error)
 }
 
 var _ accountusecase.Usecase = (*accountUsecaseMock)(nil)
@@ -50,6 +53,13 @@ func (m *accountUsecaseMock) SolveCheckpoint(ctx context.Context, userID uint, r
 		return nil, nil
 	}
 	return m.solveCheckpointFn(ctx, userID, req)
+}
+
+func (m *accountUsecaseMock) WaitForAccountValidation(ctx context.Context, userID uint, accountID string, timeout time.Duration) (*entity.Account, error) {
+	if m.waitForAccountValidationFn == nil {
+		return nil, nil
+	}
+	return m.waitForAccountValidationFn(ctx, userID, accountID, timeout)
 }
 
 func TestAccountHandler_ListUserAccounts_Success(t *testing.T) {
@@ -209,5 +219,100 @@ func TestAccountHandler_DisconnectLinkedIn_Success(t *testing.T) {
 	}
 	if resp["message"] != "LinkedIn account disconnected successfully" {
 		t.Fatalf("unexpected message: %v", resp["message"])
+	}
+}
+
+func TestAccountHandler_WaitForAccountValidation_Success(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+
+	var called bool
+	h := &AccountHandlerImpl{
+		accountUsecase: &accountUsecaseMock{
+			waitForAccountValidationFn: func(ctx context.Context, userID uint, accountID string, timeout time.Duration) (*entity.Account, error) {
+				called = true
+				if userID != 3 || accountID != "acc-456" {
+					t.Fatalf("unexpected arguments: %d, %s", userID, accountID)
+				}
+				if timeout != 300*time.Second {
+					t.Fatalf("unexpected timeout: %v", timeout)
+				}
+				return &entity.Account{
+					UserID:        userID,
+					AccountID:     accountID,
+					Provider:      "LINKEDIN",
+					CurrentStatus: "OK",
+				}, nil
+			},
+		},
+	}
+
+	payload := map[string]interface{}{
+		"account_id": "acc-456",
+		"timeout":    300,
+	}
+	raw, _ := json.Marshal(payload)
+
+	w := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(w)
+	req, _ := http.NewRequest(http.MethodPost, "/api/v1/accounts/linkedin/wait-validation", bytes.NewBuffer(raw))
+	req.Header.Set("Content-Type", "application/json")
+	c.Request = req
+	c.Set("user_id", uint(3))
+
+	h.WaitForAccountValidation(c)
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("expected status %d, got %d", http.StatusOK, w.Code)
+	}
+	if !called {
+		t.Fatal("expected usecase to be called")
+	}
+
+	var resp map[string]interface{}
+	if err := json.Unmarshal(w.Body.Bytes(), &resp); err != nil {
+		t.Fatalf("failed to unmarshal response: %v", err)
+	}
+	if resp["message"] != "LinkedIn account validated successfully" {
+		t.Fatalf("unexpected message: %v", resp["message"])
+	}
+}
+
+func TestAccountHandler_WaitForAccountValidation_ValidationError(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+
+	h := &AccountHandlerImpl{
+		accountUsecase: &accountUsecaseMock{
+			waitForAccountValidationFn: func(ctx context.Context, userID uint, accountID string, timeout time.Duration) (*entity.Account, error) {
+				return nil, errs.WrapValidationError(errors.New("account not found"), "Account not found")
+			},
+		},
+	}
+
+	payload := map[string]interface{}{
+		"account_id": "acc-789",
+		"timeout":    300,
+	}
+	raw, _ := json.Marshal(payload)
+
+	w := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(w)
+	req, _ := http.NewRequest(http.MethodPost, "/api/v1/accounts/linkedin/wait-validation", bytes.NewBuffer(raw))
+	req.Header.Set("Content-Type", "application/json")
+	c.Request = req
+	c.Set("user_id", uint(1))
+
+	h.WaitForAccountValidation(c)
+
+	if w.Code != http.StatusBadRequest {
+		t.Fatalf("expected status %d, got %d", http.StatusBadRequest, w.Code)
+	}
+
+	var resp errs.CodedError
+	if err := json.Unmarshal(w.Body.Bytes(), &resp); err != nil {
+		t.Fatalf("failed to unmarshal response: %v", err)
+	}
+
+	if resp.Kind != errs.ValidationErrorKind {
+		t.Fatalf("expected validation error kind, got %s", resp.Kind)
 	}
 }
